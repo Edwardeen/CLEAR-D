@@ -67,7 +67,7 @@ const AssessmentForm: React.FC = () => {
 
     useEffect(() => {
         if (session?.user?.id) {
-            setFormData(prev => ({ ...prev, userId: session.user.id }));
+            setFormData(prev => ({ ...prev, userId: session.user!.id }));
         }
         if (!session) {
             setFormData(prev => {
@@ -159,7 +159,6 @@ const AssessmentForm: React.FC = () => {
         setError(null);
 
         console.log('Session in handleSubmit:', session); // Log session before fetch
-        console.log('Access Token:', session?.accessToken); // Log token before fetch
 
         if (!session?.user?.id) {
             setError("User session not found. Please log in again.");
@@ -179,7 +178,7 @@ const AssessmentForm: React.FC = () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session?.token ?? ''}`,
+                    'Authorization': `Bearer ${session?.accessToken ?? ''}`,
                 },
                 body: JSON.stringify({ formData: finalFormData }),
             });
