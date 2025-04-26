@@ -178,8 +178,8 @@ const AssessmentForm: React.FC = () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session?.accessToken ?? ''}`,
                 },
+                credentials: 'include', // Ensure cookies (like session token) are sent
                 body: JSON.stringify({ formData: finalFormData }),
             });
 

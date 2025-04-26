@@ -124,7 +124,7 @@ const ProfilePage: NextPage<ProfilePageProps> = ({
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                     {assessments.map((assessment) => (
-                        <tr key={assessment._id} className="hover:bg-gray-50 transition-colors">
+                        <tr key={String(assessment._id)} className="hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
                             {new Date(assessment.timestamp).toLocaleDateString()} {new Date(assessment.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </td>
