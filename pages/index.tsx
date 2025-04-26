@@ -8,6 +8,13 @@ const HomePage: NextPage = () => {
   const { data: session, status } = useSession();
   const router = useRouter();
 
+  // Client-side check for redirecting unauthenticated users
+  useEffect(() => {
+      if (status === 'unauthenticated') {
+          router.push('/login');
+      }
+  }, [status, router]);
+
   // Handle loading state
   if (status === 'loading') {
     return (
@@ -17,14 +24,6 @@ const HomePage: NextPage = () => {
         </div>
     );
   }
-
-  // If not authenticated, redirect handled by getServerSideProps
-  // Client-side check as fallback or if direct access attempted after SSR
-  useEffect(() => {
-      if (status === 'unauthenticated') {
-          router.push('/login');
-      }
-  }, [status, router]);
 
   // Render form if authenticated
   if (session) {

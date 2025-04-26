@@ -89,7 +89,7 @@ const ProfilePage: NextPage<ProfilePageProps> = ({
 
       {!loading && assessments.length === 0 && (
         <div className="text-center py-10 bg-gray-50 rounded-md">
-          <p className="text-gray-600 mb-4">You haven't completed any assessments yet.</p>
+          <p className="text-gray-600 mb-4">You haven&apos;t completed any assessments yet.</p>
           <Link href="/" className="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 transition-colors">
               Take Assessment Now
           </Link>

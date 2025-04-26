@@ -280,7 +280,7 @@ const AssessmentForm: React.FC = () => {
                     disabled={loading}
                 />
                 {fileError && <p className="text-red-500 text-xs mt-2">{fileError}</p>}
-                 <p className="text-xs text-gray-500 mt-2">Upload an Excel file with a sheet named 'Data' and columns matching question identifiers (e.g., ElevatedIOP, FamilyHistoryCancer). Values should be 'Yes'/'No' or TRUE/FALSE.</p>
+                 <p className="text-xs text-gray-500 mt-2">Upload an Excel file with a sheet named &apos;Data&apos; and columns matching question identifiers (e.g., ElevatedIOP, FamilyHistoryCancer). Values should be &apos;Yes&apos;/&apos;No&apos; or TRUE/FALSE.</p>
             </div>
 
             {/* Glaucoma Section */}

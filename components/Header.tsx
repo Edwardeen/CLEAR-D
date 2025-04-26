@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/router';
+import Image from 'next/image';
 
 const Header = () => {
   const { data: session, status } = useSession();
@@ -17,9 +18,15 @@ const Header = () => {
     <header className="bg-blue-100 p-4 shadow-md sticky top-0 z-50">
       <nav className="container mx-auto flex justify-between items-center">
         <div className="flex items-center space-x-2">
-          {/* Placeholder Logo */}
+          {/* Use Next.js Image component */}
           <Link href="/">
-            <img src="/placeholder.png" alt="Logo" className="h-10 sm:h-12" />
+            <Image 
+              src="/placeholder.png" 
+              alt="Logo" 
+              width={48}
+              height={48}
+              className="h-10 sm:h-12 w-auto"
+            />
           </Link>
           <Link href="/" className="text-xl sm:text-2xl font-bold text-blue-800 hover:text-blue-600 transition-colors">
               Health Risk Assessment

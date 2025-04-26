@@ -15,11 +15,23 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  console.log("--- Handling /api/assessments request ---"); // Add log
+  console.log("Request Method:", req.method); // Add log
+  console.log("Request Cookies:", req.headers.cookie); // Add log: See if cookie arrives
+
+  // Add this log:
+  console.log("NEXTAUTH_SECRET loaded in /api/assessments:", process.env.NEXTAUTH_SECRET ? 'Loaded (value hidden)' : '!!! NOT LOADED !!!');
+
   const session = await getSession({ req });
 
+  console.log("Result of getSession:", session); // Add log: Crucial! See what getSession returns
+
   if (!session || !session.user?.id) {
+    console.error("getSession failed or returned invalid session. Returning 401."); // Add log
     return res.status(401).json({ message: 'Unauthorized' });
   }
+
+  console.log("Session valid, user ID:", session.user.id); // Add log
 
   await dbConnect();
 
