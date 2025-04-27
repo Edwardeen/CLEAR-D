@@ -1,5 +1,7 @@
 import type { NextPage, GetServerSideProps } from 'next';
-import { useSession, getSession } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
+import { getServerSession } from 'next-auth';
+import { authOptions } from './api/auth/[...nextauth]';
 import { useRouter } from 'next/router';
 import AssessmentForm from '../components/AssessmentForm';
 import React, { useEffect } from 'react';
@@ -30,7 +32,7 @@ const HomePage: NextPage = () => {
     return (
         <div>
              {/* Optional: Welcome message */}
-             {/* <h1 className="text-xl font-semibold mb-4">Welcome, {session.user?.name || session.user?.email}!</h1> */} 
+            <h1 className="text-xl font-semibold mb-4">Welcome, {session.user?.name || session.user?.email}!</h1>
             <AssessmentForm />
         </div>
     );
@@ -46,7 +48,7 @@ const HomePage: NextPage = () => {
 
 // Protect the page: Redirect unauthenticated users to login
 export const getServerSideProps: GetServerSideProps = async (context) => {
-  const session = await getSession(context);
+  const session = await getServerSession(context.req, context.res, authOptions);
 
   if (!session) {
     return {
@@ -57,9 +59,12 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     };
   }
 
+  // Make session serializable by converting undefined values to null
+  const serializableSession = JSON.parse(JSON.stringify(session));
+
   // If session exists, pass it as a prop (optional, useSession hook handles it client-side too)
   return {
-    props: { session },
+    props: { session: serializableSession },
   };
 };
 

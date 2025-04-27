@@ -5,9 +5,10 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { IAssessment } from '../../models/Assessment';
 import React from 'react';
+import AssessmentLineChart from '../../components/AssessmentLineChart';
 
 // Define the structure for populated user data in assessments
-interface PopulatedAssessment extends Omit<IAssessment, 'userId'> {
+interface PopulatedAssessment extends Omit<IAssessment, 'userId' | 'timestamp'> {
   _id: string;
   userId: {
     _id: string;
@@ -15,6 +16,14 @@ interface PopulatedAssessment extends Omit<IAssessment, 'userId'> {
     email: string;
   } | null;
   timestamp: string; // Already stringified by API/SSR
+}
+
+// Interface for global weekly average data
+interface WeeklyAverage {
+  week: string;
+  avgGlaucomaScore: number;
+  avgCancerScore: number;
+  count: number;
 }
 
 interface DoctorDashboardProps {
@@ -53,6 +62,19 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
   const [filters, setFilters] = useState(initialFilters);
   const [filterInput, setFilterInput] = useState(initialFilters); // Temporary input state
 
+  // State for chart data
+  const [chartAssessments, setChartAssessments] = useState<any[]>([]);
+  const [loadingChart, setLoadingChart] = useState<boolean>(false);
+  const [chartError, setChartError] = useState<string | null>(null);
+  
+  // Global statistics
+  const [globalStats, setGlobalStats] = useState<WeeklyAverage[]>([]);
+  const [loadingGlobalStats, setLoadingGlobalStats] = useState<boolean>(false);
+  const [globalStatsError, setGlobalStatsError] = useState<string | null>(null);
+  
+  // Toggle for different chart modes
+  const [chartMode, setChartMode] = useState<'filtered' | 'global' | 'both'>('both');
+
    // Authentication and Role check client-side (fallback)
   useEffect(() => {
     if (status === 'loading') return; // Wait until session status is resolved
@@ -65,6 +87,62 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
        setTimeout(() => router.push('/'), 3000);
     }
   }, [status, session, router]);
+
+  // Fetch chart data with current filters
+  useEffect(() => {
+    const fetchChartData = async () => {
+      setLoadingChart(true);
+      setChartError(null);
+      
+      try {
+        const params = new URLSearchParams();
+        params.set('limit', '50'); // Get more data points for the chart
+        
+        // Apply any active filters to the chart data
+        if (filters.userEmail) params.set('userEmail', filters.userEmail);
+        if (filters.startDate) params.set('startDate', filters.startDate);
+        if (filters.endDate) params.set('endDate', filters.endDate);
+        
+        const response = await fetch(`/api/assessment-history?${params.toString()}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch assessment history for chart');
+        }
+        
+        const data = await response.json();
+        setChartAssessments(data.assessments);
+      } catch (err: any) {
+        console.error('Error fetching chart data:', err);
+        setChartError(err.message);
+      } finally {
+        setLoadingChart(false);
+      }
+    };
+    
+    fetchChartData();
+  }, [filters]); // Refetch when filters change
+  
+  // Fetch global stats
+  useEffect(() => {
+    const fetchGlobalStats = async () => {
+      setLoadingGlobalStats(true);
+      setGlobalStatsError(null);
+      try {
+        const response = await fetch('/api/global-assessment-stats?weeks=16');
+        if (!response.ok) {
+          throw new Error('Failed to fetch global statistics');
+        }
+        const data = await response.json();
+        setGlobalStats(data.weeklyAverages);
+      } catch (err: any) {
+        console.error('Error fetching global stats:', err);
+        setGlobalStatsError(err.message);
+      } finally {
+        setLoadingGlobalStats(false);
+      }
+    };
+    
+    fetchGlobalStats();
+  }, []);
 
   // Function to fetch assessments based on current page and filters
   const fetchAssessments = async (page: number, currentFilters: typeof filters) => {
@@ -219,6 +297,94 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
           Error: {error}
         </div>
       )}
+
+      {/* Risk Score Trend Chart */}
+      <div className="mb-8 p-5 bg-white border border-gray-200 rounded-lg shadow-md">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
+          <h2 className="text-xl font-semibold text-gray-800 mb-2 md:mb-0">Patient Risk Score Trends</h2>
+          <div className="flex flex-wrap gap-2">
+            <button 
+              onClick={() => setChartMode('filtered')}
+              className={`px-3 py-1 rounded text-sm font-medium ${chartMode === 'filtered' ? 'bg-blue-100 text-blue-700 border border-blue-300' : 'bg-gray-100 text-gray-700 border border-gray-200'}`}
+            >
+              Filtered Patients
+            </button>
+            <button 
+              onClick={() => setChartMode('global')}
+              className={`px-3 py-1 rounded text-sm font-medium ${chartMode === 'global' ? 'bg-blue-100 text-blue-700 border border-blue-300' : 'bg-gray-100 text-gray-700 border border-gray-200'}`}
+            >
+              Global Weekly Avg
+            </button>
+            <button 
+              onClick={() => setChartMode('both')}
+              className={`px-3 py-1 rounded text-sm font-medium ${chartMode === 'both' ? 'bg-blue-100 text-blue-700 border border-blue-300' : 'bg-gray-100 text-gray-700 border border-gray-200'}`}
+            >
+              Compare Both
+            </button>
+          </div>
+        </div>
+        
+        <p className="text-sm text-gray-600 mb-4">
+          {chartMode === 'filtered' ? 'Showing risk scores for patients matching your current filters' : 
+           chartMode === 'global' ? 'Showing global weekly average risk scores across all patients' :
+           'Comparing filtered patient data with global weekly averages'}
+        </p>
+        
+        {loadingChart || loadingGlobalStats ? (
+          <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
+            <p className="text-gray-500">Loading chart data...</p>
+          </div>
+        ) : chartError || globalStatsError ? (
+          <div className="h-64 flex items-center justify-center bg-red-50 rounded-lg">
+            <p className="text-red-500">{chartError || globalStatsError}</p>
+          </div>
+        ) : (
+          <>
+            {chartMode === 'filtered' && chartAssessments.length > 0 && (
+              <AssessmentLineChart 
+                assessments={chartAssessments} 
+                showGlobal={false}
+                title="Filtered Patients Risk Scores"
+              />
+            )}
+            
+            {chartMode === 'global' && globalStats.length > 0 && (
+              <AssessmentLineChart 
+                assessments={[]} 
+                globalData={globalStats}
+                showGlobal={true}
+                title="Global Weekly Average Risk Scores"
+              />
+            )}
+            
+            {chartMode === 'both' && (
+              <>
+                {chartAssessments.length > 0 || globalStats.length > 0 ? (
+                  <AssessmentLineChart 
+                    assessments={chartAssessments} 
+                    globalData={globalStats}
+                    showGlobal={true}
+                    title="Filtered Patients vs. Global Weekly Averages"
+                  />
+                ) : (
+                  <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
+                    <p className="text-gray-500">No assessment data available for this filter selection</p>
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
+        
+        {(chartMode === 'global' || chartMode === 'both') && globalStats.length > 0 && (
+          <div className="mt-2 text-xs text-gray-500 italic">
+            <p>
+              Global weekly average data reflects all assessments in the system, grouped by week.
+              {chartMode === 'both' && " Dotted lines represent global averages."}
+            </p>
+          </div>
+        )}
+      </div>
 
       {loading && <div className="text-center py-4 text-gray-500">Loading assessments...</div>}
 

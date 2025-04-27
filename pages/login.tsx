@@ -1,6 +1,8 @@
 import type { NextPage, GetServerSideProps } from 'next';
 import { useState, FormEvent } from 'react';
-import { signIn, getSession } from 'next-auth/react';
+import { signIn } from 'next-auth/react';
+import { getServerSession } from 'next-auth';
+import { authOptions } from './api/auth/[...nextauth]';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import React from 'react';
@@ -138,7 +140,7 @@ const LoginPage: NextPage = () => {
 
 // Prevent authenticated users from accessing the login page
 export const getServerSideProps: GetServerSideProps = async (context) => {
-  const session = await getSession(context);
+  const session = await getServerSession(context.req, context.res, authOptions);
 
   if (session) {
     // If user is already logged in, redirect them away from login page
@@ -152,7 +154,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 
   // If not logged in, allow access to the login page
   return {
-    props: {}, // No specific props needed for login page itself
+    props: {},
   };
 };
 

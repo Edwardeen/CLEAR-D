@@ -1,11 +1,12 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getSession } from 'next-auth/react';
+import { unstable_getServerSession } from 'next-auth/next';
 import dbConnect from '../../lib/dbConnect';
 import Assessment, { IAssessment, IFormData } from '../../models/Assessment';
 import User from '../../models/User'; // Needed for populating user info
 import { calculateRisk } from '../../utils/riskCalculator';
 import { getOverallRecommendations } from '../../utils/recommendations';
 import mongoose from 'mongoose';
+import { authOptions } from './auth/[...nextauth]';
 
 interface AssessmentPostData {
   formData: IFormData;
@@ -22,7 +23,7 @@ export default async function handler(
   // Add this log:
   console.log("NEXTAUTH_SECRET loaded in /api/assessments:", process.env.NEXTAUTH_SECRET ? 'Loaded (value hidden)' : '!!! NOT LOADED !!!');
 
-  const session = await getSession({ req });
+  const session = await unstable_getServerSession(req, res, authOptions);
 
   console.log("Result of getSession:", session); // Add log: Crucial! See what getSession returns
 
@@ -89,6 +90,8 @@ export default async function handler(
         if (userRole === 'doctor') {
           // Doctor sees all assessments, potentially filtered
           const filter: any = {};
+          
+          // Filter by email
           if (req.query.userEmail) {
             const user = await User.findOne({ email: req.query.userEmail as string }).select('_id');
             if (user) {
@@ -98,6 +101,13 @@ export default async function handler(
               return res.status(200).json({ assessments: [], totalAssessments: 0, totalPages: 0, currentPage: page });
             }
           }
+          
+          // Filter by specific userId if provided (useful for showing a specific patient's history)
+          if (req.query.userId && mongoose.Types.ObjectId.isValid(req.query.userId as string)) {
+            filter.userId = new mongoose.Types.ObjectId(req.query.userId as string);
+          }
+          
+          // Filter by date range
           if (req.query.startDate || req.query.endDate) {
             filter.timestamp = {};
             if (req.query.startDate) {
@@ -123,6 +133,15 @@ export default async function handler(
         } else {
           // Regular user sees only their own assessments
           query = { userId: userId };
+          
+          // If specific assessmentId is provided to get a specific one
+          if (req.query.assessmentId && mongoose.Types.ObjectId.isValid(req.query.assessmentId as string)) {
+            query = { 
+              ...query, 
+              _id: new mongoose.Types.ObjectId(req.query.assessmentId as string) 
+            };
+          }
+          
           totalAssessments = await Assessment.countDocuments(query);
           assessments = await Assessment.find(query)
             .sort({ timestamp: -1 })
