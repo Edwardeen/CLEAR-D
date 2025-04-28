@@ -131,7 +131,7 @@ const AssessmentLineChart: React.FC<AssessmentLineChartProps> = ({
     }
 
     // Create new chart
-    const ctx = chartRef.current.getContext('2d');
+    const ctx = chartRef.current?.getContext('2d');
     if (ctx) {
       chartInstance.current = new Chart(ctx, {
         type: 'line',
@@ -184,13 +184,8 @@ const AssessmentLineChart: React.FC<AssessmentLineChartProps> = ({
   }, [assessments, globalData, showGlobal, title]);
 
   return (
-    <div className="bg-white p-4 rounded-lg shadow-md">
-      <canvas 
-        ref={chartRef} 
-        height={height} 
-        width={width}
-        className="mx-auto"
-      />
+    <div className="relative w-full h-64 sm:h-72 md:h-80 bg-white p-2 sm:p-4 rounded-lg shadow-md">
+      <canvas ref={chartRef} />
     </div>
   );
 };

@@ -156,7 +156,7 @@ const GlobalAverageChart: React.FC = () => {
     <div className="bg-white p-5 rounded-lg shadow-md mb-6">
       <div className="mb-4">
         <h2 className="text-xl font-semibold text-gray-800 mb-2">Global Risk Assessment Statistics</h2>
-        <div className="grid grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 mb-4">
           <div className="bg-blue-50 p-3 rounded border border-blue-100 text-center">
             <p className="text-sm text-gray-600">Total Assessments</p>
             <p className="text-2xl font-bold text-blue-600">{globalData.totalAssessments}</p>
@@ -171,7 +171,7 @@ const GlobalAverageChart: React.FC = () => {
           </div>
         </div>
       </div>
-      <div className="h-64">
+      <div className="relative h-64 w-full">
         <canvas ref={chartRef} />
       </div>
       <p className="text-xs text-gray-500 mt-2 italic">
