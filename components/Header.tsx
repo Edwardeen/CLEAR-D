@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
+import Logo from 'logo.png'
 
 const Header = () => {
   const { data: session, status } = useSession();
@@ -21,7 +22,7 @@ const Header = () => {
           {/* Use Next.js Image component */}
           <Link href="/">
             <Image 
-              src="/placeholder.png" 
+              src={Logo}
               alt="Logo" 
               width={48}
               height={48}

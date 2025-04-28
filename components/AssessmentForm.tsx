@@ -4,6 +4,8 @@ import { useSession } from 'next-auth/react';
 import { IFormData, IAssessment } from '../models/Assessment';
 import { parseExcel } from '../utils/parseExcel';
 import GlobalAverageChart from './GlobalAverageChart';
+import { calculateGlaucomaScore, calculateCancerScore } from '../utils/riskCalculator';
+import { getGlaucomaScoreColor, getCancerScoreColor } from '../utils/scoreColors';
 
 // Define the structure for form questions
 interface Question {
@@ -254,6 +256,12 @@ const AssessmentForm: React.FC = () => {
         </div>
     );
 
+    // Calculate scores based on current form data
+    // Use initialFormData as default values if a field is undefined
+    const currentCompleteFormData: IFormData = { ...initialFormData, ...formData };
+    const glaucomaScore = calculateGlaucomaScore(currentCompleteFormData);
+    const cancerScore = calculateCancerScore(currentCompleteFormData);
+
     return (
         <div className="space-y-8 max-w-4xl mx-auto">
             {/* Global Average Chart - Added at the top */}
@@ -269,6 +277,20 @@ const AssessmentForm: React.FC = () => {
                         <span className="block sm:inline"> {error}</span>
                     </div>
                 )}
+
+                {/* Live Score Display Section */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                    <div className={`p-4 border rounded-lg text-center shadow-sm ${getGlaucomaScoreColor(glaucomaScore)}`}>
+                        <h3 className="text-lg font-semibold">Glaucoma Score (Live)</h3>
+                        <p className="text-3xl font-bold">{glaucomaScore} <span className="text-lg font-normal">/ 10</span></p>
+                        <p className="text-sm">({(glaucomaScore / 10 * 100).toFixed(0)}% Risk)</p>
+                    </div>
+                    <div className={`p-4 border rounded-lg text-center shadow-sm ${getCancerScoreColor(cancerScore)}`}>
+                        <h3 className="text-lg font-semibold">Cancer Score (Live)</h3>
+                        <p className="text-3xl font-bold">{cancerScore} <span className="text-lg font-normal">/ 10</span></p>
+                        <p className="text-sm">({(cancerScore / 10 * 100).toFixed(0)}% Risk)</p>
+                    </div>
+                </div>
 
                 {/* File Upload Section */}
                 <div className="border border-dashed border-gray-300 p-4 rounded-md text-center bg-gray-50">
