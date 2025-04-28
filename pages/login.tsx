@@ -48,12 +48,8 @@ const LoginPage: NextPage = () => {
   };
 
   return (
-    <div className="relative flex items-center justify-center min-h-screen overflow-hidden bg-gray-100 px-4 py-12 sm:px-6 lg:px-8">
-      <div className="absolute inset-0 -z-10 h-full w-full bg-white bg-[linear-gradient(to_right,#f0f0f0_1px,transparent_1px),linear-gradient(to_bottom,#f0f0f0_1px,transparent_1px)] bg-[size:6rem_4rem]">
-          <div className="absolute bottom-0 left-0 right-0 top-0 bg-[radial-gradient(circle_800px_at_100%_200px,#d5c5ff,transparent)]"></div>
-      </div>
-
-      <div className="relative max-w-md w-full space-y-8 bg-white p-8 sm:p-10 rounded-2xl shadow-xl border border-gray-200">
+    <div className="relative flex items-center justify-center min-h-screen overflow-hidden bg-gradient-to-br from-blue-100 via-cyan-100 to-green-100 p-4 sm:p-6 lg:p-8">
+      <div className="relative max-w-md w-full space-y-8 bg-white p-8 sm:p-10 rounded-2xl shadow-xl border border-gray-200/50">
         <div className="text-center">
            <Image 
               src={Logo} 
