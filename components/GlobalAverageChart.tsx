@@ -171,8 +171,10 @@ const GlobalAverageChart: React.FC = () => {
           </div>
         </div>
       </div>
-      <div className="relative h-64 w-full">
-        <canvas ref={chartRef} />
+      <div className="overflow-x-auto py-2">
+        <div className="relative h-64 w-full min-w-[600px]">
+          <canvas ref={chartRef} />
+        </div>
       </div>
       <p className="text-xs text-gray-500 mt-2 italic">
         Data shows monthly average risk scores across all users in the system.

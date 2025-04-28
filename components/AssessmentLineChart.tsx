@@ -184,7 +184,7 @@ const AssessmentLineChart: React.FC<AssessmentLineChartProps> = ({
   }, [assessments, globalData, showGlobal, title]);
 
   return (
-    <div className="relative w-full h-64 sm:h-72 md:h-80 bg-white p-2 sm:p-4 rounded-lg shadow-md">
+    <div className="relative w-full h-72 bg-white p-2 sm:p-4 rounded-lg shadow-md">
       <canvas ref={chartRef} />
     </div>
   );

@@ -59,35 +59,37 @@ export default async function handler(
         }
       },
       {
-        $addFields: {
-          monthYear: {
-            $concat: [
-              { $toString: { $month: "$timestamp" } },
-              "/",
-              { $toString: { $year: "$timestamp" } }
-            ]
-          }
-        }
+        $sort: { timestamp: 1 }
       },
       {
         $group: {
-          _id: "$monthYear",
+          _id: {
+            year: { $year: "$timestamp" },
+            month: { $month: "$timestamp" }
+          },
           avgGlaucomaScore: { $avg: "$glaucomaScore" },
           avgCancerScore: { $avg: "$cancerScore" },
-          count: { $sum: 1 }
+          count: { $sum: 1 },
+          firstTimestamp: { $first: "$timestamp" }
         }
+      },
+      {
+        $sort: { "_id.year": 1, "_id.month": 1 }
       },
       {
         $project: {
           _id: 0,
-          month: "$_id",
+          month: {
+            $concat: [
+              { $toString: "$_id.month" },
+              "/",
+              { $toString: "$_id.year" }
+            ]
+          },
           avgGlaucomaScore: { $round: ["$avgGlaucomaScore", 2] },
           avgCancerScore: { $round: ["$avgCancerScore", 2] },
           count: 1
         }
-      },
-      {
-        $sort: { month: 1 }
       }
     ]);
     
