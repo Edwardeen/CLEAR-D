@@ -1,13 +1,14 @@
 import type { NextPage, GetServerSideProps } from 'next';
 import { useSession, getSession } from 'next-auth/react';
-import { useState, useEffect, ChangeEvent } from 'react';
+import { useState, useEffect, ChangeEvent, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { IAssessment } from '../../models/Assessment';
 import React from 'react';
+import AssessmentLineChart from '../../components/AssessmentLineChart';
 
 // Define the structure for populated user data in assessments
-interface PopulatedAssessment extends Omit<IAssessment, 'userId'> {
+interface PopulatedAssessment extends Omit<IAssessment, 'userId' | 'timestamp'> {
   _id: string;
   userId: {
     _id: string;
@@ -16,6 +17,18 @@ interface PopulatedAssessment extends Omit<IAssessment, 'userId'> {
   } | null;
   timestamp: string; // Already stringified by API/SSR
 }
+
+// Interface for global weekly average data
+interface WeeklyAverage {
+  week: string;
+  avgGlaucomaScore: number;
+  avgCancerScore: number;
+  count: number;
+}
+
+// Define sortable fields
+type SortField = 'userId.email' | 'userId.name' | 'timestamp' | 'glaucomaScore' | 'cancerScore';
+type SortOrder = 'asc' | 'desc';
 
 interface DoctorDashboardProps {
   initialAssessments: PopulatedAssessment[];
@@ -27,6 +40,8 @@ interface DoctorDashboardProps {
       startDate: string;
       endDate: string;
   };
+  initialSortField: SortField | null;
+  initialSortOrder: SortOrder | null;
   error?: string;
 }
 
@@ -36,6 +51,8 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
     totalPages: initialTotalPages,
     currentPage: initialCurrentPage,
     initialFilters,
+    initialSortField,
+    initialSortOrder,
     error: initialError
 }) => {
   const { data: session, status } = useSession();
@@ -53,6 +70,23 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
   const [filters, setFilters] = useState(initialFilters);
   const [filterInput, setFilterInput] = useState(initialFilters); // Temporary input state
 
+  // State for sorting
+  const [sortField, setSortField] = useState<SortField | null>(initialSortField);
+  const [sortOrder, setSortOrder] = useState<SortOrder | null>(initialSortOrder);
+
+  // State for chart data
+  const [chartAssessments, setChartAssessments] = useState<any[]>([]);
+  const [loadingChart, setLoadingChart] = useState<boolean>(false);
+  const [chartError, setChartError] = useState<string | null>(null);
+  
+  // Global statistics
+  const [globalStats, setGlobalStats] = useState<WeeklyAverage[]>([]);
+  const [loadingGlobalStats, setLoadingGlobalStats] = useState<boolean>(false);
+  const [globalStatsError, setGlobalStatsError] = useState<string | null>(null);
+  
+  // Toggle for different chart modes
+  const [chartMode, setChartMode] = useState<'filtered' | 'global' | 'both'>('both');
+
    // Authentication and Role check client-side (fallback)
   useEffect(() => {
     if (status === 'loading') return; // Wait until session status is resolved
@@ -66,17 +100,83 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
     }
   }, [status, session, router]);
 
-  // Function to fetch assessments based on current page and filters
-  const fetchAssessments = async (page: number, currentFilters: typeof filters) => {
+  // Fetch chart data with current filters
+  useEffect(() => {
+    const fetchChartData = async () => {
+      setLoadingChart(true);
+      setChartError(null);
+      
+      try {
+        const params = new URLSearchParams();
+        params.set('limit', '50'); // Get more data points for the chart
+        
+        // Apply any active filters to the chart data
+        if (filters.userEmail) params.set('userEmail', filters.userEmail);
+        if (filters.startDate) params.set('startDate', filters.startDate);
+        if (filters.endDate) params.set('endDate', filters.endDate);
+        
+        const response = await fetch(`/api/assessment-history?${params.toString()}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch assessment history for chart');
+        }
+        
+        const data = await response.json();
+        setChartAssessments(data.assessments);
+      } catch (err: any) {
+        console.error('Error fetching chart data:', err);
+        setChartError(err.message);
+      } finally {
+        setLoadingChart(false);
+      }
+    };
+    
+    fetchChartData();
+  }, [filters]); // Refetch when filters change
+  
+  // Fetch global stats
+  useEffect(() => {
+    const fetchGlobalStats = async () => {
+      setLoadingGlobalStats(true);
+      setGlobalStatsError(null);
+      try {
+        const response = await fetch('/api/global-assessment-stats?weeks=16');
+        if (!response.ok) {
+          throw new Error('Failed to fetch global statistics');
+        }
+        const data = await response.json();
+        setGlobalStats(data.weeklyAverages);
+      } catch (err: any) {
+        console.error('Error fetching global stats:', err);
+        setGlobalStatsError(err.message);
+      } finally {
+        setLoadingGlobalStats(false);
+      }
+    };
+    
+    fetchGlobalStats();
+  }, []);
+
+  // Updated function to fetch assessments based on current page, filters, AND SORTING
+  const fetchAssessments = useCallback(async (
+    page: number, 
+    currentFilters: typeof filters, 
+    currentSortField: SortField | null, 
+    currentSortOrder: SortOrder | null
+  ) => {
         setLoading(true);
         setError(null);
         const params = new URLSearchParams({
             page: page.toString(),
-            limit: '15', // Example: Show 15 per page
+            limit: '15', 
         });
         if (currentFilters.userEmail) params.set('userEmail', currentFilters.userEmail);
         if (currentFilters.startDate) params.set('startDate', currentFilters.startDate);
         if (currentFilters.endDate) params.set('endDate', currentFilters.endDate);
+        // Add sort parameters
+        if (currentSortField && currentSortOrder) {
+            params.set('sortField', currentSortField);
+            params.set('sortOrder', currentSortOrder);
+        }
 
         try {
             const response = await fetch(`/api/assessments?${params.toString()}`);
@@ -101,32 +201,49 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
         } finally {
             setLoading(false);
         }
-    };
+    }, [router]); // Add dependencies if needed, router used for push
+
+    // Initial fetch on mount
+    useEffect(() => {
+        fetchAssessments(currentPage, filters, sortField, sortOrder);
+        // Only run on mount if needed, or adjust dependencies
+    }, []); // Consider if this needs dependencies like currentPage, filters, sortField, sortOrder
 
     // Handle filter input changes
     const handleFilterInputChange = (e: ChangeEvent<HTMLInputElement>) => {
         setFilterInput(prev => ({ ...prev, [e.target.name]: e.target.value }));
     };
 
-    // Apply filters and fetch data for page 1
+    // Apply filters and fetch data for page 1 with current sort
     const applyFilters = () => {
          setFilters(filterInput); // Update the active filters
-         fetchAssessments(1, filterInput); // Fetch based on the new filters, starting from page 1
+         setCurrentPage(1); // Reset to page 1 when filters change
+         fetchAssessments(1, filterInput, sortField, sortOrder); // Fetch based on new filters and current sort
     };
 
-     // Reset filters and fetch all data for page 1
+     // Reset filters and fetch all data for page 1 with default sort (or current sort)
     const resetFilters = () => {
         const emptyFilters = { userEmail: '', startDate: '', endDate: '' };
         setFilterInput(emptyFilters);
         setFilters(emptyFilters);
-        fetchAssessments(1, emptyFilters);
+        setCurrentPage(1); // Reset to page 1
+        fetchAssessments(1, emptyFilters, sortField, sortOrder); // Fetch with empty filters and current sort
     };
 
     // Handle pagination clicks
     const handlePageChange = (newPage: number) => {
         if (newPage >= 1 && newPage <= totalPages && newPage !== currentPage) {
-            fetchAssessments(newPage, filters); // Fetch new page with current filters
+            fetchAssessments(newPage, filters, sortField, sortOrder); // Fetch new page with current filters and sort
         }
+    };
+    
+    // Handle sort clicks
+    const handleSort = (field: SortField) => {
+        const newSortOrder = sortField === field && sortOrder === 'asc' ? 'desc' : 'asc';
+        setSortField(field);
+        setSortOrder(newSortOrder);
+        setCurrentPage(1); // Reset to page 1 when sorting changes
+        fetchAssessments(1, filters, field, newSortOrder); // Fetch page 1 with new sort
     };
 
   // Render loading state or access denied message early
@@ -220,6 +337,94 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
         </div>
       )}
 
+      {/* Risk Score Trend Chart */}
+      <div className="mb-8 p-5 bg-white border border-gray-200 rounded-lg shadow-md">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
+          <h2 className="text-xl font-semibold text-gray-800 mb-2 md:mb-0">Patient Risk Score Trends</h2>
+          <div className="flex flex-wrap gap-2">
+            <button 
+              onClick={() => setChartMode('filtered')}
+              className={`px-3 py-1 rounded text-sm font-medium ${chartMode === 'filtered' ? 'bg-blue-100 text-blue-700 border border-blue-300' : 'bg-gray-100 text-gray-700 border border-gray-200'}`}
+            >
+              Filtered Patients
+            </button>
+            <button 
+              onClick={() => setChartMode('global')}
+              className={`px-3 py-1 rounded text-sm font-medium ${chartMode === 'global' ? 'bg-blue-100 text-blue-700 border border-blue-300' : 'bg-gray-100 text-gray-700 border border-gray-200'}`}
+            >
+              Global Weekly Avg
+            </button>
+            <button 
+              onClick={() => setChartMode('both')}
+              className={`px-3 py-1 rounded text-sm font-medium ${chartMode === 'both' ? 'bg-blue-100 text-blue-700 border border-blue-300' : 'bg-gray-100 text-gray-700 border border-gray-200'}`}
+            >
+              Compare Both
+            </button>
+          </div>
+        </div>
+        
+        <p className="text-sm text-gray-600 mb-4">
+          {chartMode === 'filtered' ? 'Showing risk scores for patients matching your current filters' : 
+           chartMode === 'global' ? 'Showing global weekly average risk scores across all patients' :
+           'Comparing filtered patient data with global weekly averages'}
+        </p>
+        
+        {loadingChart || loadingGlobalStats ? (
+          <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
+            <p className="text-gray-500">Loading chart data...</p>
+          </div>
+        ) : chartError || globalStatsError ? (
+          <div className="h-64 flex items-center justify-center bg-red-50 rounded-lg">
+            <p className="text-red-500">{chartError || globalStatsError}</p>
+          </div>
+        ) : (
+          <>
+            {chartMode === 'filtered' && chartAssessments.length > 0 && (
+              <AssessmentLineChart 
+                assessments={chartAssessments} 
+                showGlobal={false}
+                title="Filtered Patients Risk Scores"
+              />
+            )}
+            
+            {chartMode === 'global' && globalStats.length > 0 && (
+              <AssessmentLineChart 
+                assessments={[]} 
+                globalData={globalStats}
+                showGlobal={true}
+                title="Global Weekly Average Risk Scores"
+              />
+            )}
+            
+            {chartMode === 'both' && (
+              <>
+                {chartAssessments.length > 0 || globalStats.length > 0 ? (
+                  <AssessmentLineChart 
+                    assessments={chartAssessments} 
+                    globalData={globalStats}
+                    showGlobal={true}
+                    title="Filtered Patients vs. Global Weekly Averages"
+                  />
+                ) : (
+                  <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
+                    <p className="text-gray-500">No assessment data available for this filter selection</p>
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
+        
+        {(chartMode === 'global' || chartMode === 'both') && globalStats.length > 0 && (
+          <div className="mt-2 text-xs text-gray-500 italic">
+            <p>
+              Global weekly average data reflects all assessments in the system, grouped by week.
+              {chartMode === 'both' && " Dotted lines represent global averages."}
+            </p>
+          </div>
+        )}
+      </div>
+
       {loading && <div className="text-center py-4 text-gray-500">Loading assessments...</div>}
 
       {!loading && assessments.length === 0 && (
@@ -235,20 +440,47 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
               <thead className="bg-gray-100">
                 <tr>
                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                     User Email
+                     <button onClick={() => handleSort('userId.email')} className="flex items-center space-x-1 hover:text-gray-900">
+                       <span>User Email</span>
+                       {sortField === 'userId.email' && (
+                         <span className="text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                       )}
+                     </button>
                    </th>
                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                     User Name
+                      <button onClick={() => handleSort('userId.name')} className="flex items-center space-x-1 hover:text-gray-900">
+                       <span>User Name</span>
+                       {sortField === 'userId.name' && (
+                         <span className="text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                       )}
+                     </button>
                    </th>
                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                     Date
+                     <button onClick={() => handleSort('timestamp')} className="flex items-center space-x-1 hover:text-gray-900">
+                       <span>Date</span>
+                       {sortField === 'timestamp' && (
+                         <span className="text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                       )}
+                       {!sortField && <span className="text-xs">▼</span>} {/* Default sort indicator */} 
+                     </button>
                    </th>
                    <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase tracking-wider">
-                     Glaucoma Score
+                     <button onClick={() => handleSort('glaucomaScore')} className="inline-flex items-center space-x-1 hover:text-gray-900">
+                       <span>Glaucoma Score</span>
+                        {sortField === 'glaucomaScore' && (
+                         <span className="text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                       )}
+                     </button>
                    </th>
                    <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase tracking-wider">
-                     Cancer Score
+                     <button onClick={() => handleSort('cancerScore')} className="inline-flex items-center space-x-1 hover:text-gray-900">
+                       <span>Cancer Score</span>
+                       {sortField === 'cancerScore' && (
+                         <span className="text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+                       )}
+                     </button>
                    </th>
+                   {/* Non-sortable columns */}
                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                      Highest Risk
                    </th>
@@ -384,7 +616,7 @@ export const getServerSideProps: GetServerSideProps<DoctorDashboardProps> = asyn
         if (!response.ok) {
             const errorData = await response.json();
              console.error("SSR fetch error (Doctor Dashboard):", errorData);
-            return { props: { initialAssessments: [], totalAssessments: 0, totalPages: 0, currentPage: 1, initialFilters, error: errorData.message || 'Failed to load assessments.' } };
+            return { props: { initialAssessments: [], totalAssessments: 0, totalPages: 0, currentPage: 1, initialFilters, initialSortField: null, initialSortOrder: null, error: errorData.message || 'Failed to load assessments.' } };
         }
 
         const data = await response.json();
@@ -399,11 +631,13 @@ export const getServerSideProps: GetServerSideProps<DoctorDashboardProps> = asyn
                 totalPages: data.totalPages,
                 currentPage: data.currentPage,
                 initialFilters,
+                initialSortField: null,
+                initialSortOrder: null,
             },
         };
     } catch (error: any) {
          console.error('Error fetching assessments server-side (Doctor Dashboard):', error);
-         return { props: { initialAssessments: [], totalAssessments: 0, totalPages: 0, currentPage: 1, initialFilters, error: error.message || 'Server error fetching assessments.' } };
+         return { props: { initialAssessments: [], totalAssessments: 0, totalPages: 0, currentPage: 1, initialFilters, initialSortField: null, initialSortOrder: null, error: error.message || 'Server error fetching assessments.' } };
     }
 };
 

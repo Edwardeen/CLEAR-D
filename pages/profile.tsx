@@ -1,10 +1,21 @@
 import type { NextPage, GetServerSideProps } from 'next';
-import { useSession, getSession } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
+import { getServerSession } from 'next-auth';
+import { authOptions } from './api/auth/[...nextauth]';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { IAssessment } from '../models/Assessment';
 import React from 'react';
+import AssessmentLineChart from '../components/AssessmentLineChart';
+
+// Define interface for global weekly average data
+interface WeeklyAverage {
+  week: string;
+  avgGlaucomaScore: number;
+  avgCancerScore: number;
+  count: number;
+}
 
 interface ProfilePageProps {
   initialAssessments: IAssessment[];
@@ -29,6 +40,16 @@ const ProfilePage: NextPage<ProfilePageProps> = ({
   const [currentPage, setCurrentPage] = useState<number>(initialCurrentPage);
   const [totalPages, setTotalPages] = useState<number>(initialTotalPages);
   const [totalAssessments, setTotalAssessments] = useState<number>(initialTotalAssessments);
+  const [chartAssessments, setChartAssessments] = useState<IAssessment[]>([]);
+  const [loadingChart, setLoadingChart] = useState<boolean>(false);
+  
+  // Global statistics
+  const [globalStats, setGlobalStats] = useState<WeeklyAverage[]>([]);
+  const [loadingGlobalStats, setLoadingGlobalStats] = useState<boolean>(false);
+  const [globalStatsError, setGlobalStatsError] = useState<string | null>(null);
+  
+  // Toggle for showing global comparison
+  const [showGlobalComparison, setShowGlobalComparison] = useState<boolean>(true);
 
    // Authentication check client-side (fallback)
   useEffect(() => {
@@ -66,6 +87,51 @@ const ProfilePage: NextPage<ProfilePageProps> = ({
         }
     };
 
+  // Fetch historical data for chart visualization
+  useEffect(() => {
+    const fetchChartData = async () => {
+      setLoadingChart(true);
+      try {
+        const response = await fetch('/api/assessment-history?limit=30');
+        if (!response.ok) {
+          throw new Error('Failed to fetch assessment history for chart');
+        }
+        const data = await response.json();
+        setChartAssessments(data.assessments);
+      } catch (err) {
+        console.error('Error fetching chart data:', err);
+        // We don't need to show this error prominently
+      } finally {
+        setLoadingChart(false);
+      }
+    };
+
+    fetchChartData();
+  }, []);
+  
+  // Fetch global stats for comparison
+  useEffect(() => {
+    const fetchGlobalStats = async () => {
+      setLoadingGlobalStats(true);
+      setGlobalStatsError(null);
+      try {
+        const response = await fetch('/api/global-assessment-stats?weeks=12');
+        if (!response.ok) {
+          throw new Error('Failed to fetch global statistics');
+        }
+        const data = await response.json();
+        setGlobalStats(data.weeklyAverages);
+      } catch (err: any) {
+        console.error('Error fetching global stats:', err);
+        setGlobalStatsError(err.message);
+      } finally {
+        setLoadingGlobalStats(false);
+      }
+    };
+    
+    fetchGlobalStats();
+  }, []);
+
   if (status === 'loading') {
     return <div className="text-center p-10">Loading profile...</div>;
   }
@@ -98,6 +164,56 @@ const ProfilePage: NextPage<ProfilePageProps> = ({
 
       {!loading && assessments.length > 0 && (
         <>
+            {/* Risk Score Trend Chart - Using the optimized chart data */}
+            <div className="mb-8">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-gray-800">Risk Score Trend</h2>
+                <div className="flex items-center">
+                  <label className="inline-flex items-center mr-4 cursor-pointer">
+                    <span className="text-sm text-gray-700 mr-2">Show Global Comparison</span>
+                    <input 
+                      type="checkbox" 
+                      checked={showGlobalComparison} 
+                      onChange={() => setShowGlobalComparison(!showGlobalComparison)}
+                      className="form-checkbox h-4 w-4 text-blue-600 transition duration-150 ease-in-out"
+                    />
+                  </label>
+                </div>
+              </div>
+              
+              {loadingChart || loadingGlobalStats ? (
+                <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
+                  <p className="text-gray-500">Loading chart data...</p>
+                </div>
+              ) : chartAssessments.length > 0 ? (
+                <AssessmentLineChart 
+                  assessments={chartAssessments} 
+                  globalData={globalStats}
+                  showGlobal={showGlobalComparison}
+                  title="Your Risk Scores vs. Global Weekly Averages"
+                />
+              ) : (
+                <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
+                  <p className="text-gray-500">No historical data available for chart</p>
+                </div>
+              )}
+              
+              {globalStatsError && (
+                <p className="text-red-500 text-xs mt-2">
+                  Note: Global comparison data could not be loaded: {globalStatsError}
+                </p>
+              )}
+              
+              {showGlobalComparison && globalStats.length > 0 && (
+                <div className="mt-2 text-xs text-gray-500 italic">
+                  <p>
+                    Global comparison shows weekly averages of all users' assessment scores.
+                    Dotted lines represent global averages.
+                  </p>
+                </div>
+              )}
+            </div>
+
             <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 border border-gray-200 shadow-sm rounded-lg">
                     <thead className="bg-gray-50">
@@ -186,7 +302,7 @@ const ProfilePage: NextPage<ProfilePageProps> = ({
 
 // Fetch initial assessments server-side
 export const getServerSideProps: GetServerSideProps<ProfilePageProps> = async (context) => {
-  const session = await getSession(context);
+  const session = await getServerSession(context.req, context.res, authOptions);
 
   if (!session?.user?.id) {
     return {
@@ -197,44 +313,47 @@ export const getServerSideProps: GetServerSideProps<ProfilePageProps> = async (c
     };
   }
 
-    const page = parseInt(context.query.page as string) || 1;
-    const limit = 10; // Keep consistent with client-side fetch
+  // Make session serializable by converting undefined values to null
+  const serializableSession = JSON.parse(JSON.stringify(session));
 
-    try {
-         const response = await fetch(`${process.env.NEXTAUTH_URL}/api/assessments?page=${page}&limit=${limit}`, {
-            headers: {
-                // Pass the session cookie to the API route for authentication
-                'Cookie': context.req.headers.cookie || '',
-            },
-        });
+  const page = parseInt(context.query.page as string) || 1;
+  const limit = 10; // Keep consistent with client-side fetch
 
-        if (!response.ok) {
-            const errorData = await response.json();
-             console.error("SSR fetch error:", errorData);
-             // Return error state to the page component
-            return { props: { initialAssessments: [], totalAssessments: 0, totalPages: 0, currentPage: 1, error: errorData.message || 'Failed to load assessments.' } };
-        }
+  try {
+    const response = await fetch(`${process.env.NEXTAUTH_URL}/api/assessments?page=${page}&limit=${limit}`, {
+      headers: {
+        // Pass the session cookie to the API route for authentication
+        'Cookie': context.req.headers.cookie || '',
+      },
+    });
 
-        const data = await response.json();
-
-         // Basic type check
-         if (!data || !Array.isArray(data.assessments)) {
-             throw new Error('Invalid data format received from API');
-         }
-
-        // Data fetched successfully
-        return {
-            props: {
-                initialAssessments: JSON.parse(JSON.stringify(data.assessments)), // Ensure data is serializable
-                totalAssessments: data.totalAssessments,
-                totalPages: data.totalPages,
-                currentPage: data.currentPage,
-            },
-        };
-    } catch (error: any) {
-         console.error('Error fetching assessments server-side:', error);
-         return { props: { initialAssessments: [], totalAssessments: 0, totalPages: 0, currentPage: 1, error: error.message || 'Server error fetching assessments.' } };
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("SSR fetch error:", errorData);
+      // Return error state to the page component
+      return { props: { initialAssessments: [], totalAssessments: 0, totalPages: 0, currentPage: 1, error: errorData.message || 'Failed to load assessments.' } };
     }
+
+    const data = await response.json();
+
+    // Basic type check
+    if (!data || !Array.isArray(data.assessments)) {
+      throw new Error('Invalid data format received from API');
+    }
+
+    // Data fetched successfully
+    return {
+      props: {
+        initialAssessments: JSON.parse(JSON.stringify(data.assessments)), // Ensure data is serializable
+        totalAssessments: data.totalAssessments,
+        totalPages: data.totalPages,
+        currentPage: data.currentPage,
+      },
+    };
+  } catch (error: any) {
+    console.error('Error fetching assessments server-side:', error);
+    return { props: { initialAssessments: [], totalAssessments: 0, totalPages: 0, currentPage: 1, error: error.message || 'Server error fetching assessments.' } };
+  }
 };
 
 export default ProfilePage; 

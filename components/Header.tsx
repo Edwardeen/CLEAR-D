@@ -29,7 +29,7 @@ const Header = () => {
             />
           </Link>
           <Link href="/" className="text-xl sm:text-2xl font-bold text-blue-800 hover:text-blue-600 transition-colors">
-              Health Risk Assessment
+              CLEAR-D
           </Link>
         </div>
 

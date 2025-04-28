@@ -2,35 +2,35 @@
 
 export const getGlaucomaRecommendations = (score: number): string => {
   if (score >= 0 && score <= 2) {
-    return "Your glaucoma risk is low. Regular eye check-ups are recommended.";
+    return "Your glaucoma risk is low. We recommend you to monitor your routinity, and lifestyle.";
   }
   if (score > 2 && score < 5) { // Adjusted range to match prompt (2.1-4.9)
-    return "Your glaucoma risk is moderate. Consider seeing an eye specialist.";
+    return "Your glaucoma risk is moderate. Consider seeing an eye specialist to get a laser therapy, and to get eye drops prescribed.";
   }
   if (score >= 5 && score < 8) { // Adjusted range (5.0-7.9)
-    return "Your glaucoma risk is high. Please consult an ophthalmologist soon.";
+    return "Your glaucoma risk is high. Please consult an ophthalmologist soon. We recommend you to do surgery or combination treatments.";
   }
   if (score >= 8 && score <= 10) {
-    return "Your glaucoma risk is very high. Seek immediate medical attention.";
+    return "Your glaucoma risk is very high. Seek immediate medical attention to get laser or IOP-lowering medications.";
   }
   return "Invalid score.";
 };
 
 export const getCancerRecommendations = (score: number): string => {
   if (score >= 0 && score <= 2) {
-    return "Your cancer risk is low. Continue with regular check-ups.";
+    return "Your cancer risk is low. Continue with regular check-ups. If you are diagnosed, please do Targeted Therapy";
   }
   if (score >= 3 && score <= 4) {
-    return "Your cancer risk is moderate. Consider consulting a doctor for further evaluation.";
+    return "Your cancer risk is moderate. Consider consulting a doctor for further evaluation. if diagnosed, proceed to get Immunotherapy";
   }
   if (score >= 5 && score <= 6) {
-    return "Your cancer risk is high. Please consult a doctor as soon as possible.";
+    return "Your cancer risk is high. Please consult a doctor as soon as possible. if diagnosed, do Radiation Therapy";
   }
   if (score >= 7 && score <= 8) {
-    return "Your cancer risk is very high. Seek medical attention immediately.";
+    return "Your cancer risk is very high. Seek medical attention immediately. if diagnosed, proceed to get Chemotherapy";
   }
   if (score >= 9 && score <= 10) {
-    return "Your cancer risk is extremely high. Urgent medical consultation is necessary.";
+    return "Your cancer risk is extremely high. Urgent medical consultation is necessary. if diagnosed, proceed to get Surgery and Chemotherapy or Radiation Therapy";
   }
   return "Invalid score.";
 };

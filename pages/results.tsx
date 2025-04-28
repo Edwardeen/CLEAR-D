@@ -1,16 +1,28 @@
 import type { NextPage, GetServerSideProps } from 'next';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { getSession } from 'next-auth/react';
+import { getServerSession } from 'next-auth';
+import { authOptions } from './api/auth/[...nextauth]';
 import dbConnect from '../lib/dbConnect';
 import Assessment, { IAssessment } from '../models/Assessment';
 import { ParsedUrlQuery } from 'querystring';
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import mongoose from 'mongoose';
+import AssessmentLineChart from '../components/AssessmentLineChart';
+import { getCancerScoreColor, getGlaucomaScoreColor } from '../utils/scoreColors';
+
+// Define interface for global weekly average data
+interface WeeklyAverage {
+  week: string;
+  avgGlaucomaScore: number;
+  avgCancerScore: number;
+  count: number;
+}
 
 interface ResultsPageProps {
   assessment?: IAssessment | null; // Can be null if not found or error
   error?: string;
+  session?: any; // Added session prop
 }
 
 // Helper to safely stringify and parse (to handle non-serializable types like ObjectId/Date)
@@ -23,9 +35,77 @@ const safeJsonParse = (data: any): IAssessment | null => {
   }
 };
 
-const ResultsPage: NextPage<ResultsPageProps> = ({ assessment: initialAssessment, error }) => {
+const ResultsPage: NextPage<ResultsPageProps> = ({ assessment: initialAssessment, error, session }) => {
   const router = useRouter();
-  const assessment = initialAssessment; // Use the prop directly
+  const assessment = initialAssessment;
+  const [historicalAssessments, setHistoricalAssessments] = useState<IAssessment[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState<boolean>(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  
+  // Global statistics
+  const [globalStats, setGlobalStats] = useState<WeeklyAverage[]>([]);
+  const [loadingGlobalStats, setLoadingGlobalStats] = useState<boolean>(false);
+  const [globalStatsError, setGlobalStatsError] = useState<string | null>(null);
+  
+  // Toggle for showing global comparison
+  const [showGlobalComparison, setShowGlobalComparison] = useState<boolean>(true);
+
+  useEffect(() => {
+    // If we have a valid assessment, fetch historical data for comparison
+    if (assessment && assessment._id) {
+      const fetchHistory = async () => {
+        setLoadingHistory(true);
+        try {
+          // Use the dedicated assessment-history endpoint with a higher limit
+          const response = await fetch(`/api/assessment-history?limit=20`);
+          if (!response.ok) {
+            throw new Error('Failed to fetch historical assessments');
+          }
+          const data = await response.json();
+          
+          // Make sure the current assessment is included
+          const currentIncluded = data.assessments.some((a: IAssessment) => a._id === assessment._id);
+          
+          if (!currentIncluded) {
+            setHistoricalAssessments([...data.assessments, assessment]);
+          } else {
+            setHistoricalAssessments(data.assessments);
+          }
+        } catch (err: any) {
+          setHistoryError(err.message);
+        } finally {
+          setLoadingHistory(false);
+        }
+      };
+      
+      fetchHistory();
+    }
+  }, [assessment]);
+  
+  // Fetch global stats for comparison
+  useEffect(() => {
+    if (assessment) { // Only fetch if we have an assessment
+      const fetchGlobalStats = async () => {
+        setLoadingGlobalStats(true);
+        setGlobalStatsError(null);
+        try {
+          const response = await fetch('/api/global-assessment-stats?weeks=12');
+          if (!response.ok) {
+            throw new Error('Failed to fetch global statistics');
+          }
+          const data = await response.json();
+          setGlobalStats(data.weeklyAverages);
+        } catch (err: any) {
+          console.error('Error fetching global stats:', err);
+          setGlobalStatsError(err.message);
+        } finally {
+          setLoadingGlobalStats(false);
+        }
+      };
+      
+      fetchGlobalStats();
+    }
+  }, [assessment]);
 
   if (error) {
     return (
@@ -59,17 +139,65 @@ const ResultsPage: NextPage<ResultsPageProps> = ({ assessment: initialAssessment
       <div className="space-y-6">
           {/* Scores Section */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-center shadow-sm">
-                <h3 className="text-lg font-semibold text-green-800">Glaucoma Score</h3>
-                <p className="text-3xl font-bold text-green-600">{assessment.glaucomaScore} <span className="text-lg font-normal">/ 10</span></p>
-                <p className="text-sm text-gray-600">({(assessment.glaucomaScore / 10 * 100).toFixed(0)}% Risk)</p>
+            <div className={`p-4 border rounded-lg text-center shadow-sm ${getGlaucomaScoreColor(assessment.glaucomaScore)}`}>
+                <h3 className="text-lg font-semibold">Glaucoma Score</h3>
+                <p className="text-3xl font-bold">{assessment.glaucomaScore} <span className="text-lg font-normal">/ 10</span></p>
+                <p className="text-sm">({(assessment.glaucomaScore / 10 * 100).toFixed(0)}% Risk)</p>
             </div>
-             <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg text-center shadow-sm">
-                <h3 className="text-lg font-semibold text-purple-800">Cancer Score</h3>
-                <p className="text-3xl font-bold text-purple-600">{assessment.cancerScore} <span className="text-lg font-normal">/ 10</span></p>
-                 <p className="text-sm text-gray-600">({(assessment.cancerScore / 10 * 100).toFixed(0)}% Risk)</p>
+            <div className={`p-4 border rounded-lg text-center shadow-sm ${getCancerScoreColor(assessment.cancerScore)}`}>
+                <h3 className="text-lg font-semibold">Cancer Score</h3>
+                <p className="text-3xl font-bold">{assessment.cancerScore} <span className="text-lg font-normal">/ 10</span></p>
+                <p className="text-sm">({(assessment.cancerScore / 10 * 100).toFixed(0)}% Risk)</p>
             </div>
         </div>
+
+        {/* Historical Chart Section */}
+        {historicalAssessments.length > 0 && (
+          <div className="p-5 bg-gray-50 border border-gray-200 rounded-lg shadow-md mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-800">Risk Score Trend</h2>
+              <div className="flex items-center">
+                <label className="inline-flex items-center cursor-pointer">
+                  <span className="text-sm text-gray-700 mr-2">Show Global Comparison</span>
+                  <input 
+                    type="checkbox" 
+                    checked={showGlobalComparison} 
+                    onChange={() => setShowGlobalComparison(!showGlobalComparison)}
+                    className="form-checkbox h-4 w-4 text-blue-600 transition duration-150 ease-in-out"
+                  />
+                </label>
+              </div>
+            </div>
+            
+            {loadingHistory || loadingGlobalStats ? (
+              <div className="text-center py-4">Loading chart data...</div>
+            ) : historyError ? (
+              <div className="text-red-500 text-center py-4">{historyError}</div>
+            ) : (
+              <AssessmentLineChart 
+                assessments={historicalAssessments}
+                globalData={globalStats}
+                showGlobal={showGlobalComparison}
+                title="Your Risk Scores vs. Global Averages"
+              />
+            )}
+            
+            {globalStatsError && (
+              <p className="text-red-500 text-xs mt-2">
+                Note: Global comparison data could not be loaded: {globalStatsError}
+              </p>
+            )}
+            
+            {showGlobalComparison && globalStats.length > 0 && (
+              <div className="mt-2 text-xs text-gray-500 italic">
+                <p>
+                  Global comparison shows weekly averages across all users.
+                  Dotted lines represent global averages.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Primary Risk and Recommendations */}
         <div className="p-5 bg-blue-50 border border-blue-200 rounded-lg shadow-md">
@@ -86,17 +214,7 @@ const ResultsPage: NextPage<ResultsPageProps> = ({ assessment: initialAssessment
 
             <h3 className="font-semibold text-gray-700 mb-1">Recommendations:</h3>
              {/* Use pre-wrap to preserve line breaks from the combined recommendations string */}
-             <pre className="text-gray-800 bg-white p-3 border border-gray-200 rounded text-sm whitespace-pre-wrap break-words font-sans">
-                 {assessment.recommendations}
-             </pre>
-             <p className="text-xs text-gray-500 mt-4 italic">Remember: This assessment provides risk stratification and is not a diagnosis. Consult with a healthcare professional for any health concerns.</p>
-        </div>
-
-
-          {/* Optional: Display individual recommendations if needed */}
-           {/* <div className="mt-6 p-4 border border-gray-200 rounded">
-               <h3 className="font-semibold text-gray-700 mb-2">Detailed Recommendations:</h3>
-               <div className="mb-2">
+             <div className="mb-2">
                    <h4 className="font-medium text-green-700">Glaucoma:</h4>
                    <p className="text-sm text-gray-600">{assessment.glaucomaRecommendations}</p>
                </div>
@@ -104,7 +222,24 @@ const ResultsPage: NextPage<ResultsPageProps> = ({ assessment: initialAssessment
                    <h4 className="font-medium text-purple-700">Cancer:</h4>
                    <p className="text-sm text-gray-600">{assessment.cancerRecommendations}</p>
                </div>
-           </div> */}
+             <p className="text-xs text-gray-500 mt-4 italic">Remember: This assessment provides early detection of cancer and glaucoma. Consult with a healthcare professional for the full diagnosis and treatment.</p>
+        </div>
+
+
+          {/* 
+          Optional: Display individual recommendations if needed
+          <div className="mt-6 p-4 border border-gray-200 rounded">
+              <h3 className="font-semibold text-gray-700 mb-2">Detailed Recommendations:</h3>
+              <div className="mb-2">
+                  <h4 className="font-medium text-green-700">Glaucoma:</h4>
+                  <p className="text-sm text-gray-600">{assessment.glaucomaRecommendations}</p>
+              </div>
+              <div>
+                  <h4 className="font-medium text-purple-700">Cancer:</h4>
+                  <p className="text-sm text-gray-600">{assessment.cancerRecommendations}</p>
+              </div>
+          </div>
+          */}
 
 
         {/* Back Button */}
@@ -123,8 +258,8 @@ interface Params extends ParsedUrlQuery {
 }
 
 // Fetch assessment data server-side
-export const getServerSideProps: GetServerSideProps<ResultsPageProps, Params> = async (context) => {
-  const session = await getSession(context);
+export const getServerSideProps: GetServerSideProps<ResultsPageProps> = async (context) => {
+  const session = await getServerSession(context.req, context.res, authOptions);
 
   if (!session?.user?.id) {
     return {
@@ -135,7 +270,11 @@ export const getServerSideProps: GetServerSideProps<ResultsPageProps, Params> = 
     };
   }
 
-  const { assessmentId } = context.params!;
+  // Make session serializable by converting undefined values to null
+  const serializableSession = JSON.parse(JSON.stringify(session));
+
+  // Get assessmentId from query parameters
+  const assessmentId = context.query.assessmentId as string;
 
   if (!assessmentId || !mongoose.Types.ObjectId.isValid(assessmentId)) {
       return { props: { assessment: null, error: "Invalid or missing assessment ID." } };
@@ -151,8 +290,8 @@ export const getServerSideProps: GetServerSideProps<ResultsPageProps, Params> = 
     }
 
     // Security Check: Ensure the logged-in user owns the assessment or is a doctor
-    if (assessment.userId.toString() !== session.user.id && session.user.role !== 'doctor') {
-        console.warn(`Unauthorized access attempt: User ${session.user.id} tried to access assessment ${assessmentId} owned by ${assessment.userId.toString()}`);
+    if (assessment.userId.toString() !== serializableSession.user.id && serializableSession.user.role !== 'doctor') {
+        console.warn(`Unauthorized access attempt: User ${serializableSession.user.id} tried to access assessment ${assessmentId} owned by ${assessment.userId.toString()}`);
          return { props: { assessment: null, error: "You do not have permission to view this assessment." } };
     }
 
@@ -164,7 +303,10 @@ export const getServerSideProps: GetServerSideProps<ResultsPageProps, Params> = 
      }
 
     return {
-      props: { assessment: serializableAssessment },
+      props: { 
+        assessment: serializableAssessment,
+        session: serializableSession,
+      },
     };
 
   } catch (error: any) {

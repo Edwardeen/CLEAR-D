@@ -3,7 +3,8 @@ import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import React from 'react';
-import { getSession } from 'next-auth/react';
+import { getServerSession } from 'next-auth';
+import { authOptions } from './api/auth/[...nextauth]';
 
 const RegisterPage: NextPage = () => {
   const [name, setName] = useState('');
@@ -175,7 +176,7 @@ const RegisterPage: NextPage = () => {
 
 // Prevent authenticated users from accessing the register page
 export const getServerSideProps: GetServerSideProps = async (context) => {
-  const session = await getSession(context);
+  const session = await getServerSession(context.req, context.res, authOptions);
 
   if (session) {
     return {
@@ -187,7 +188,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   }
 
   return {
-    props: {}, // No props needed for the registration page
+    props: {},
   };
 };
 

@@ -13,7 +13,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         {children}
       </main>
       <footer className="bg-gray-200 text-center p-4 text-sm text-gray-600 mt-auto">
-        © {new Date().getFullYear()} Health Risk Assessment App. For informational purposes only.
+        © {new Date().getFullYear()} Cancer & Glaucoma Early Automated Recognition – Diabetes-linked.
       </footer>
     </div>
   );
