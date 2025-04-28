@@ -79,16 +79,38 @@ export default async function handler(
 
     case 'GET':
       try {
-        let assessments;
         const page = parseInt(req.query.page as string) || 1;
-        const limit = parseInt(req.query.limit as string) || 10; // Default limit 10
+        const limit = parseInt(req.query.limit as string) || 10;
         const skip = (page - 1) * limit;
 
+        // --- Sorting Logic --- 
+        const sortField = req.query.sortField as string;
+        const sortOrder = req.query.sortOrder as string; // 'asc' or 'desc'
+
+        let sortOptions: any = { timestamp: -1 }; // Default sort: newest first
+
+        // Define allowed sort fields to prevent arbitrary sorting
+        const allowedSortFields = [
+          'timestamp', 'glaucomaScore', 'cancerScore', 
+          'userId.name', 'userId.email' // For populated fields
+        ];
+
+        if (sortField && allowedSortFields.includes(sortField)) {
+          // Need special handling for populated fields if using aggregation
+          // For simple sort on populated fields, Mongoose might handle it directly
+          // in .sort() if the path is correct after population.
+          sortOptions = { [sortField]: sortOrder === 'asc' ? 1 : -1 };
+        } else if (sortField) {
+          console.warn(`Attempted to sort by invalid field: ${sortField}`);
+          // Keep default sort if field is invalid
+        }
+        // --- End Sorting Logic ---
+        
         let query = {};
         let totalAssessments = 0;
+        let queryBuilder;
 
         if (userRole === 'doctor') {
-          // Doctor sees all assessments, potentially filtered
           const filter: any = {};
           
           // Filter by email
@@ -123,12 +145,13 @@ export default async function handler(
 
           query = filter;
           totalAssessments = await Assessment.countDocuments(query);
-          assessments = await Assessment.find(query)
-            .populate('userId', 'name email') // Populate user name and email
-            .sort({ timestamp: -1 }) // Sort by most recent
+          
+          queryBuilder = Assessment.find(query)
+            .populate('userId', 'name email') // Populate user data
+            .sort(sortOptions) // Apply dynamic sort
             .skip(skip)
             .limit(limit)
-            .lean(); // Use lean for performance
+            .lean(); 
 
         } else {
           // Regular user sees only their own assessments
@@ -143,12 +166,15 @@ export default async function handler(
           }
           
           totalAssessments = await Assessment.countDocuments(query);
-          assessments = await Assessment.find(query)
-            .sort({ timestamp: -1 })
+          queryBuilder = Assessment.find(query)
+            // Apply default sort or allow user-specific sorting if needed later
+            .sort({ timestamp: -1 }) 
             .skip(skip)
             .limit(limit)
             .lean();
         }
+        
+        const assessments = await queryBuilder; // Execute the query
 
         const totalPages = Math.ceil(totalAssessments / limit);
 

@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from './api/auth/[...nextauth]';
 import { useRouter } from 'next/router';
 import AssessmentForm from '../components/AssessmentForm';
+import GlobalStats from '../components/GlobalStats';
 import React, { useEffect } from 'react';
 
 const HomePage: NextPage = () => {
@@ -30,9 +31,17 @@ const HomePage: NextPage = () => {
   // Render form if authenticated
   if (session) {
     return (
-        <div>
-             {/* Optional: Welcome message */}
-            <h1 className="text-xl font-semibold mb-4">Welcome, {session.user?.name || session.user?.email}!</h1>
+        <div className="container mx-auto px-4 py-6">
+            {/* Welcome message with global stats */}
+            <div className="text-center mb-6">
+                <h1 className="text-2xl font-semibold mb-2">Welcome, {session.user?.name || session.user?.email}!</h1>
+                <p className="text-gray-600">Complete the assessment below to evaluate your health risks</p>
+            </div>
+            
+            {/* Display global stats before the form */}
+            {/* <GlobalStats /> */}
+            
+            {/* Assessment form */}
             <AssessmentForm />
         </div>
     );

@@ -9,6 +9,7 @@ import { ParsedUrlQuery } from 'querystring';
 import React, { useState, useEffect } from 'react';
 import mongoose from 'mongoose';
 import AssessmentLineChart from '../components/AssessmentLineChart';
+import { getCancerScoreColor, getGlaucomaScoreColor } from '../utils/scoreColors';
 
 // Define interface for global weekly average data
 interface WeeklyAverage {
@@ -138,15 +139,15 @@ const ResultsPage: NextPage<ResultsPageProps> = ({ assessment: initialAssessment
       <div className="space-y-6">
           {/* Scores Section */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-center shadow-sm">
-                <h3 className="text-lg font-semibold text-green-800">Glaucoma Score</h3>
-                <p className="text-3xl font-bold text-green-600">{assessment.glaucomaScore} <span className="text-lg font-normal">/ 10</span></p>
-                <p className="text-sm text-gray-600">({(assessment.glaucomaScore / 10 * 100).toFixed(0)}% Risk)</p>
+            <div className={`p-4 border rounded-lg text-center shadow-sm ${getGlaucomaScoreColor(assessment.glaucomaScore)}`}>
+                <h3 className="text-lg font-semibold">Glaucoma Score</h3>
+                <p className="text-3xl font-bold">{assessment.glaucomaScore} <span className="text-lg font-normal">/ 10</span></p>
+                <p className="text-sm">({(assessment.glaucomaScore / 10 * 100).toFixed(0)}% Risk)</p>
             </div>
-             <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg text-center shadow-sm">
-                <h3 className="text-lg font-semibold text-purple-800">Cancer Score</h3>
-                <p className="text-3xl font-bold text-purple-600">{assessment.cancerScore} <span className="text-lg font-normal">/ 10</span></p>
-                 <p className="text-sm text-gray-600">({(assessment.cancerScore / 10 * 100).toFixed(0)}% Risk)</p>
+            <div className={`p-4 border rounded-lg text-center shadow-sm ${getCancerScoreColor(assessment.cancerScore)}`}>
+                <h3 className="text-lg font-semibold">Cancer Score</h3>
+                <p className="text-3xl font-bold">{assessment.cancerScore} <span className="text-lg font-normal">/ 10</span></p>
+                <p className="text-sm">({(assessment.cancerScore / 10 * 100).toFixed(0)}% Risk)</p>
             </div>
         </div>
 
@@ -213,17 +214,7 @@ const ResultsPage: NextPage<ResultsPageProps> = ({ assessment: initialAssessment
 
             <h3 className="font-semibold text-gray-700 mb-1">Recommendations:</h3>
              {/* Use pre-wrap to preserve line breaks from the combined recommendations string */}
-             <pre className="text-gray-800 bg-white p-3 border border-gray-200 rounded text-sm whitespace-pre-wrap break-words font-sans">
-                 {assessment.recommendations}
-             </pre>
-             <p className="text-xs text-gray-500 mt-4 italic">Remember: This assessment provides risk stratification and is not a diagnosis. Consult with a healthcare professional for any health concerns.</p>
-        </div>
-
-
-          {/* Optional: Display individual recommendations if needed */}
-           {/* <div className="mt-6 p-4 border border-gray-200 rounded">
-               <h3 className="font-semibold text-gray-700 mb-2">Detailed Recommendations:</h3>
-               <div className="mb-2">
+             <div className="mb-2">
                    <h4 className="font-medium text-green-700">Glaucoma:</h4>
                    <p className="text-sm text-gray-600">{assessment.glaucomaRecommendations}</p>
                </div>
@@ -231,7 +222,24 @@ const ResultsPage: NextPage<ResultsPageProps> = ({ assessment: initialAssessment
                    <h4 className="font-medium text-purple-700">Cancer:</h4>
                    <p className="text-sm text-gray-600">{assessment.cancerRecommendations}</p>
                </div>
-           </div> */}
+             <p className="text-xs text-gray-500 mt-4 italic">Remember: This assessment provides early detection of cancer and glaucoma. Consult with a healthcare professional for the full diagnosis and treatment.</p>
+        </div>
+
+
+          {/* 
+          Optional: Display individual recommendations if needed
+          <div className="mt-6 p-4 border border-gray-200 rounded">
+              <h3 className="font-semibold text-gray-700 mb-2">Detailed Recommendations:</h3>
+              <div className="mb-2">
+                  <h4 className="font-medium text-green-700">Glaucoma:</h4>
+                  <p className="text-sm text-gray-600">{assessment.glaucomaRecommendations}</p>
+              </div>
+              <div>
+                  <h4 className="font-medium text-purple-700">Cancer:</h4>
+                  <p className="text-sm text-gray-600">{assessment.cancerRecommendations}</p>
+              </div>
+          </div>
+          */}
 
 
         {/* Back Button */}
