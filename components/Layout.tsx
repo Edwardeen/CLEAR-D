@@ -1,5 +1,6 @@
 import React, { ReactNode } from 'react';
 import Header from './Header';
+import { Analytics } from '@vercel/analytics/next';
 
 interface LayoutProps {
   children: ReactNode;
@@ -11,6 +12,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <Header />
       <main className="flex-grow container mx-auto p-4 sm:p-6 lg:p-8">
         {children}
+        <Analytics />
       </main>
       <footer className="bg-gray-200 text-center p-4 text-sm text-gray-600 mt-auto">
         © {new Date().getFullYear()} Cancer & Glaucoma Early Automated Recognition – Diabetes-linked.
