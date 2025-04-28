@@ -207,7 +207,7 @@ const ProfilePage: NextPage<ProfilePageProps> = ({
               {showGlobalComparison && globalStats.length > 0 && (
                 <div className="mt-2 text-xs text-gray-500 italic">
                   <p>
-                    Global comparison shows weekly averages of all users' assessment scores.
+                    Global comparison shows weekly averages of all users&apos; assessment scores.
                     Dotted lines represent global averages.
                   </p>
                 </div>
