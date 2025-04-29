@@ -24,14 +24,12 @@ const Header = () => {
             <Image 
               src={Logo}
               alt="Logo" 
-              width={48}
-              height={48}
+              width={300}
+              height={300}
               className="h-10 sm:h-12 w-auto"
             />
           </Link>
-          <Link href="/" className="text-xl sm:text-2xl font-bold text-blue-800 hover:text-blue-600 transition-colors">
-              CLEAR-D
-          </Link>
+
         </div>
 
         {/* Navigation Links */}
@@ -46,11 +44,13 @@ const Header = () => {
 
               {session ? (
                 <>
-                  <li>
-                    <Link href="/profile" className="text-gray-700 hover:text-blue-600 transition-colors font-medium">
-                      Profile
-                    </Link>
-                  </li>
+                  {session.user?.role !== 'doctor' && (
+                    <li>
+                      <Link href="/profile" className="text-gray-700 hover:text-blue-600 transition-colors font-medium">
+                        Profile
+                      </Link>
+                    </li>
+                  )}
                   {session.user?.role === 'doctor' && (
                     <li>
                       <Link href="/doctor/dashboard" className="text-gray-700 hover:text-blue-600 transition-colors font-medium">

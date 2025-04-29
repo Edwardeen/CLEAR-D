@@ -35,6 +35,26 @@ const safeJsonParse = (data: any): IAssessment | null => {
   }
 };
 
+// Helper function to get recommendation box styles based on the HIGHEST score's color
+const getRecommendationBoxStyle = (
+    higherRiskDisease: 'glaucoma' | 'cancer' | 'both' | 'none',
+    glaucomaScore: number,
+    cancerScore: number
+): string => {
+  switch (higherRiskDisease) {
+    case 'glaucoma':
+      return getGlaucomaScoreColor(glaucomaScore); // Use glaucoma color scale
+    case 'cancer':
+      return getCancerScoreColor(cancerScore); // Use cancer color scale
+    case 'both':
+      // Scores are equal, use the color for that score level (e.g., using glaucoma scale)
+      return getGlaucomaScoreColor(glaucomaScore); 
+    case 'none':
+    default:
+      return 'bg-gray-100 border-gray-300 text-gray-800'; // Neutral theme for low risk
+  }
+};
+
 const ResultsPage: NextPage<ResultsPageProps> = ({ assessment: initialAssessment, error, session }) => {
   const router = useRouter();
   const assessment = initialAssessment;
@@ -49,6 +69,11 @@ const ResultsPage: NextPage<ResultsPageProps> = ({ assessment: initialAssessment
   
   // Toggle for showing global comparison
   const [showGlobalComparison, setShowGlobalComparison] = useState<boolean>(true);
+  
+  // Determine recommendation box style
+  const recommendationBoxStyle = assessment 
+    ? getRecommendationBoxStyle(assessment.higherRiskDisease, assessment.glaucomaScore, assessment.cancerScore) 
+    : 'bg-gray-100 border-gray-300 text-gray-800'; // Default if no assessment
 
   useEffect(() => {
     // If we have a valid assessment, fetch historical data for comparison
@@ -151,6 +176,25 @@ const ResultsPage: NextPage<ResultsPageProps> = ({ assessment: initialAssessment
             </div>
         </div>
 
+        {/* Diabetes Information Section */}
+        {assessment.formData && (
+             <div className={`p-4 mt-6 rounded-lg shadow-sm border ${assessment.formData.diabetes ? 'bg-yellow-100 border-yellow-300' : 'bg-blue-50 border-blue-200'}`}>
+                 <h3 className={`text-lg font-semibold mb-2 ${assessment.formData.diabetes ? 'text-yellow-900 font-bold' : 'text-blue-800'}`}>Diabetes Information</h3>
+                 <p className="text-m text-gray-700">
+                     <span className="font-bold">Reported Diabetes Status:</span> 
+                     <span className={`font-bold ${assessment.formData.diabetes ? 'text-red-700 text-base' : 'text-green-600'}`}> {assessment.formData.diabetes ? 'Yes' : 'No'}</span>
+                 </p>
+                 {assessment.formData.diabetes && (
+                    <p className="text-xs text-gray-600 mt-2 font-medium">
+                        {assessment.higherRiskDisease === 'glaucoma' && "Note: Diabetes is a known risk factor for Glaucoma."}
+                        {assessment.higherRiskDisease === 'cancer' && "Note: Diabetes can increase the risk for certain types of Cancer."}
+                        {assessment.higherRiskDisease === 'both' && "Note: Diabetes is a known risk factor for both Glaucoma and certain types of Cancer."}
+                        {assessment.higherRiskDisease === 'none' && "Note: While your overall risk score is low, managing diabetes is important as it is a known risk factor for both Glaucoma and Cancer."}
+                    </p>
+                 )}
+             </div>
+         )}
+
         {/* Historical Chart Section */}
         {historicalAssessments.length > 0 && (
           <div className="p-5 bg-gray-50 border border-gray-200 rounded-lg shadow-md mb-6">
@@ -200,11 +244,11 @@ const ResultsPage: NextPage<ResultsPageProps> = ({ assessment: initialAssessment
         )}
 
         {/* Primary Risk and Recommendations */}
-        <div className="p-5 bg-blue-50 border border-blue-200 rounded-lg shadow-md">
-             <h2 className="text-xl font-semibold text-blue-800 mb-3 border-b border-blue-200 pb-2">Risk Summary & Recommendations</h2>
+        <div className={`p-5 ${recommendationBoxStyle} rounded-lg shadow-md`}>
+             <h2 className="text-xl font-semibold text-gray-900 mb-3 border-b border-current pb-2">Risk Summary & Recommendations</h2>
             <div className="mb-4">
                 <span className="font-medium text-gray-700">Highest Risk Identified: </span>
-                <span className="font-bold text-lg text-blue-700">
+                <span className="font-bold text-lg text-gray-900">
                     {assessment.higherRiskDisease === 'both' ? 'Glaucoma & Cancer (Equal Risk)'
                         : assessment.higherRiskDisease === 'none' ? 'None (Low Risk Overall)'
                         : assessment.higherRiskDisease.charAt(0).toUpperCase() + assessment.higherRiskDisease.slice(1)
@@ -212,35 +256,26 @@ const ResultsPage: NextPage<ResultsPageProps> = ({ assessment: initialAssessment
                 </span>
             </div>
 
-            <h3 className="font-semibold text-gray-700 mb-1">Recommendations:</h3>
-             {/* Use pre-wrap to preserve line breaks from the combined recommendations string */}
+            <h3 className="font-semibold text-gray-700 mb-2">Recommendations:</h3>
+            
+            {/* Glaucoma Section - Always Rendered */}
+            <div className="mb-2">
+                <h4 className={`font-medium text-green-700 ${assessment.higherRiskDisease === 'glaucoma' || assessment.higherRiskDisease === 'both' ? 'font-bold' : ''}`}>Glaucoma:</h4>
+                <p className={`text-sm text-gray-600 ${assessment.higherRiskDisease === 'glaucoma' || assessment.higherRiskDisease === 'both' ? 'font-semibold' : ''}`}>
+                    {assessment.glaucomaRecommendations}
+                 </p>
+            </div>
+            
+            {/* Cancer Section - Always Rendered */}
              <div className="mb-2">
-                   <h4 className="font-medium text-green-700">Glaucoma:</h4>
-                   <p className="text-sm text-gray-600">{assessment.glaucomaRecommendations}</p>
-               </div>
-               <div>
-                   <h4 className="font-medium text-purple-700">Cancer:</h4>
-                   <p className="text-sm text-gray-600">{assessment.cancerRecommendations}</p>
-               </div>
+                <h4 className={`font-medium text-purple-700 ${assessment.higherRiskDisease === 'cancer' || assessment.higherRiskDisease === 'both' ? 'font-bold' : ''}`}>Cancer:</h4>
+                <p className={`text-sm text-gray-600 ${assessment.higherRiskDisease === 'cancer' || assessment.higherRiskDisease === 'both' ? 'font-semibold' : ''}`}>
+                    {assessment.cancerRecommendations}
+                 </p>
+            </div>
+
              <p className="text-xs text-gray-500 mt-4 italic">Remember: This assessment provides early detection of cancer and glaucoma. Consult with a healthcare professional for the full diagnosis and treatment.</p>
         </div>
-
-
-          {/* 
-          Optional: Display individual recommendations if needed
-          <div className="mt-6 p-4 border border-gray-200 rounded">
-              <h3 className="font-semibold text-gray-700 mb-2">Detailed Recommendations:</h3>
-              <div className="mb-2">
-                  <h4 className="font-medium text-green-700">Glaucoma:</h4>
-                  <p className="text-sm text-gray-600">{assessment.glaucomaRecommendations}</p>
-              </div>
-              <div>
-                  <h4 className="font-medium text-purple-700">Cancer:</h4>
-                  <p className="text-sm text-gray-600">{assessment.cancerRecommendations}</p>
-              </div>
-          </div>
-          */}
-
 
         {/* Back Button */}
         <div className="text-center mt-8">

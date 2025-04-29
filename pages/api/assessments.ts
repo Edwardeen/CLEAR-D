@@ -143,6 +143,49 @@ export default async function handler(
             }
           }
 
+          // --- Filter by Glaucoma Risk Category ---
+          const glaucomaFilter = req.query.glaucomaFilter as string;
+          if (glaucomaFilter) {
+            switch (glaucomaFilter) {
+              case 'low': // 0-2
+                filter.glaucomaScore = { $gte: 0, $lte: 2 };
+                break;
+              case 'moderate': // 2.1-4.9
+                filter.glaucomaScore = { $gt: 2, $lt: 5 }; // Use $gt and $lt for non-inclusive bounds if scores are decimals
+                // If scores are integers, $gte: 3, $lte: 4 might be intended, clarify if needed.
+                // Assuming scores *can* be decimal based on ranges like 2.1-4.9
+                break;
+              case 'high': // 5.0-7.9
+                filter.glaucomaScore = { $gte: 5, $lt: 8 };
+                break;
+              case 'severe': // 8-10
+                filter.glaucomaScore = { $gte: 8, $lte: 10 };
+                break;
+            }
+          }
+
+          // --- Filter by Cancer Treatment Category ---
+          const cancerFilter = req.query.cancerFilter as string;
+          if (cancerFilter) {
+            switch (cancerFilter) {
+              case 'targeted': // 0-2
+                filter.cancerScore = { $gte: 0, $lte: 2 };
+                break;
+              case 'immuno': // 3-4
+                filter.cancerScore = { $gte: 3, $lte: 4 };
+                break;
+              case 'radiation': // 5-6
+                filter.cancerScore = { $gte: 5, $lte: 6 };
+                break;
+              case 'chemo': // 7-8
+                filter.cancerScore = { $gte: 7, $lte: 8 };
+                break;
+              case 'surgery_combo': // 9-10
+                filter.cancerScore = { $gte: 9, $lte: 10 };
+                break;
+            }
+          }
+
           query = filter;
           totalAssessments = await Assessment.countDocuments(query);
           

@@ -48,21 +48,21 @@ const LoginPage: NextPage = () => {
   };
 
   return (
-    <div className="relative flex items-center justify-center min-h-screen overflow-hidden bg-gradient-to-br from-blue-100 via-cyan-100 to-green-100 p-4 sm:p-6 lg:p-8">
+    <div className="relative flex items-center justify-center min-h-screen overflow-hidden bg-gradient-to-br from-slate-100 via-gray-100 to-blue-50 p-4 sm:p-6 lg:p-8">
       <div className="relative max-w-md w-full space-y-8 bg-white p-8 sm:p-10 rounded-2xl shadow-xl border border-gray-200/50">
         <div className="text-center">
            <Image 
               src={Logo} 
               alt="Logo" 
-              width={60}
-              height={60}
+              width={300}
+              height={120}
               className="mx-auto mb-4"
           />
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">
+          {/* <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">
             Sign in to CLEAR-D
-          </h2>
+          </h2> */}
            <p className="mt-2 text-sm text-gray-600">
-            Access your health assessment portal.
+            Sign in to Access your health assessment portal.
           </p>
         </div>
         

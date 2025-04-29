@@ -40,6 +40,7 @@ interface DoctorDashboardProps {
       startDate: string;
       endDate: string;
   };
+  initialRiskFilter: string | null;
   initialSortField: SortField | null;
   initialSortOrder: SortOrder | null;
   error?: string;
@@ -51,6 +52,7 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
     totalPages: initialTotalPages,
     currentPage: initialCurrentPage,
     initialFilters,
+    initialRiskFilter,
     initialSortField,
     initialSortOrder,
     error: initialError
@@ -69,6 +71,8 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
   // State for filters
   const [filters, setFilters] = useState(initialFilters);
   const [filterInput, setFilterInput] = useState(initialFilters); // Temporary input state
+  const [glaucomaFilter, setGlaucomaFilter] = useState<string>('');
+  const [cancerFilter, setCancerFilter] = useState<string>('');
 
   // State for sorting
   const [sortField, setSortField] = useState<SortField | null>(initialSortField);
@@ -158,20 +162,25 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
 
   // Updated function to fetch assessments based on current page, filters, AND SORTING
   const fetchAssessments = useCallback(async (
-    page: number, 
-    currentFilters: typeof filters, 
-    currentSortField: SortField | null, 
+    page: number,
+    currentFilters: typeof filters,
+    currentGlaucomaFilter: string,
+    currentCancerFilter: string,
+    currentSortField: SortField | null,
     currentSortOrder: SortOrder | null
   ) => {
         setLoading(true);
         setError(null);
         const params = new URLSearchParams({
             page: page.toString(),
-            limit: '15', 
+            limit: '15',
         });
         if (currentFilters.userEmail) params.set('userEmail', currentFilters.userEmail);
         if (currentFilters.startDate) params.set('startDate', currentFilters.startDate);
         if (currentFilters.endDate) params.set('endDate', currentFilters.endDate);
+        if (currentGlaucomaFilter) params.set('glaucomaFilter', currentGlaucomaFilter);
+        if (currentCancerFilter) params.set('cancerFilter', currentCancerFilter);
+
         // Add sort parameters
         if (currentSortField && currentSortOrder) {
             params.set('sortField', currentSortField);
@@ -205,20 +214,20 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
 
     // Initial fetch on mount
     useEffect(() => {
-        fetchAssessments(currentPage, filters, sortField, sortOrder);
-        // Only run on mount if needed, or adjust dependencies
-    }, []); // Consider if this needs dependencies like currentPage, filters, sortField, sortOrder
+        fetchAssessments(currentPage, filters, glaucomaFilter, cancerFilter, sortField, sortOrder);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Only run on mount
 
     // Handle filter input changes
     const handleFilterInputChange = (e: ChangeEvent<HTMLInputElement>) => {
         setFilterInput(prev => ({ ...prev, [e.target.name]: e.target.value }));
     };
 
-    // Apply filters and fetch data for page 1 with current sort
+    // Apply filters and fetch data for page 1 with current sort and risk filter
     const applyFilters = () => {
          setFilters(filterInput); // Update the active filters
          setCurrentPage(1); // Reset to page 1 when filters change
-         fetchAssessments(1, filterInput, sortField, sortOrder); // Fetch based on new filters and current sort
+         fetchAssessments(1, filterInput, glaucomaFilter, cancerFilter, sortField, sortOrder); // Fetch based on new filters, current risk, and current sort
     };
 
      // Reset filters and fetch all data for page 1 with default sort (or current sort)
@@ -226,14 +235,31 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
         const emptyFilters = { userEmail: '', startDate: '', endDate: '' };
         setFilterInput(emptyFilters);
         setFilters(emptyFilters);
+        setGlaucomaFilter('');
+        setCancerFilter('');
         setCurrentPage(1); // Reset to page 1
-        fetchAssessments(1, emptyFilters, sortField, sortOrder); // Fetch with empty filters and current sort
+        fetchAssessments(1, emptyFilters, '', '', sortField, sortOrder); // Fetch with empty filters and null risk
+    };
+
+    // Handle Risk Filter Button Clicks
+    const handleGlaucomaFilterChange = (e: ChangeEvent<HTMLSelectElement>) => {
+      const newFilter = e.target.value;
+      setGlaucomaFilter(newFilter);
+      setCurrentPage(1);
+      fetchAssessments(1, filters, newFilter, cancerFilter, sortField, sortOrder);
+    };
+
+    const handleCancerFilterChange = (e: ChangeEvent<HTMLSelectElement>) => {
+      const newFilter = e.target.value;
+      setCancerFilter(newFilter);
+      setCurrentPage(1);
+      fetchAssessments(1, filters, glaucomaFilter, newFilter, sortField, sortOrder);
     };
 
     // Handle pagination clicks
     const handlePageChange = (newPage: number) => {
         if (newPage >= 1 && newPage <= totalPages && newPage !== currentPage) {
-            fetchAssessments(newPage, filters, sortField, sortOrder); // Fetch new page with current filters and sort
+            fetchAssessments(newPage, filters, glaucomaFilter, cancerFilter, sortField, sortOrder); // Include risk filter
         }
     };
     
@@ -243,7 +269,7 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
         setSortField(field);
         setSortOrder(newSortOrder);
         setCurrentPage(1); // Reset to page 1 when sorting changes
-        fetchAssessments(1, filters, field, newSortOrder); // Fetch page 1 with new sort
+        fetchAssessments(1, filters, glaucomaFilter, cancerFilter, field, newSortOrder); // Include risk filter
     };
 
   // Render loading state or access denied message early
@@ -269,10 +295,11 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
   // Main dashboard content for doctors
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6">Doctor Dashboard - All Assessments</h1>
+      <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6">Hospital Dashboard - All Assessments</h1>
 
         {/* Filter Section */}
-        <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 shadow-sm">
+        <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 shadow-sm space-y-4">
+            {/* Row 1: Text/Date Filters */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                  {/* User Email Filter */}
                 <div>
@@ -311,24 +338,68 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
                         className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                     />
                 </div>
-                 {/* Action Buttons */}
-                <div className="flex space-x-2">
-                    <button
+            </div>
+
+            {/* Row 2: NEW Select Filters */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                {/* Glaucoma Filter */}
+                 <div>
+                    <label htmlFor="glaucomaFilter" className="block text-sm font-medium text-gray-700 mb-1">Filter by Glaucoma Risk</label>
+                    <select
+                        id="glaucomaFilter"
+                        name="glaucomaFilter"
+                        value={glaucomaFilter}
+                        onChange={handleGlaucomaFilterChange}
+                        disabled={loading}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-white"
+                    >
+                        <option value="">All Glaucoma Risks</option>
+                        <option value="low">Low (0-2)</option>
+                        <option value="moderate">Moderate (2.1-4.9)</option>
+                        <option value="high">High (5.0-7.9)</option>
+                        <option value="severe">Severe (8-10)</option>
+                    </select>
+                </div>
+
+                {/* Cancer Filter */}
+                <div>
+                    <label htmlFor="cancerFilter" className="block text-sm font-medium text-gray-700 mb-1">Filter by Cancer Treatment</label>
+                    <select
+                        id="cancerFilter"
+                        name="cancerFilter"
+                        value={cancerFilter}
+                        onChange={handleCancerFilterChange}
+                        disabled={loading}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-white"
+                    >
+                        <option value="">All Cancer Treatments</option>
+                        <option value="targeted">Targeted Therapy (0-2)</option>
+                        <option value="immuno">Immunotherapy (3-4)</option>
+                        <option value="radiation">Radiation Therapy (5-6)</option>
+                        <option value="chemo">Chemotherapy (7-8)</option>
+                        <option value="surgery_combo">Surgery + Chemo/Radiation (9-10)</option>
+                    </select>
+                </div>
+
+                 {/* Filter/Reset Buttons */}
+                 <div className="flex space-x-2">
+                     <button
                         onClick={applyFilters}
                         disabled={loading}
-                        className="flex-1 justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                        className="w-full justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
                     >
                         Apply Filters
                     </button>
-                     <button
+                    <button
                         onClick={resetFilters}
                         disabled={loading}
-                        className="flex-1 justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+                        className="w-full justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
                     >
-                        Reset
+                        Reset Filters
                     </button>
                 </div>
-            </div>
+             </div>
+
         </div>
 
       {error && (
@@ -591,6 +662,8 @@ export const getServerSideProps: GetServerSideProps<DoctorDashboardProps> = asyn
     const userEmail = context.query.userEmail as string || '';
     const startDate = context.query.startDate as string || '';
     const endDate = context.query.endDate as string || '';
+    const initialGlaucomaFilter = context.query.glaucomaFilter as string || '';
+    const initialCancerFilter = context.query.cancerFilter as string || '';
 
      const initialFilters = { userEmail, startDate, endDate };
 
@@ -601,6 +674,8 @@ export const getServerSideProps: GetServerSideProps<DoctorDashboardProps> = asyn
         if (userEmail) params.set('userEmail', userEmail);
         if (startDate) params.set('startDate', startDate);
         if (endDate) params.set('endDate', endDate);
+        if (initialGlaucomaFilter) params.set('glaucomaFilter', initialGlaucomaFilter);
+        if (initialCancerFilter) params.set('cancerFilter', initialCancerFilter);
 
     try {
          // Construct the full URL for the API endpoint
@@ -616,7 +691,7 @@ export const getServerSideProps: GetServerSideProps<DoctorDashboardProps> = asyn
         if (!response.ok) {
             const errorData = await response.json();
              console.error("SSR fetch error (Doctor Dashboard):", errorData);
-            return { props: { initialAssessments: [], totalAssessments: 0, totalPages: 0, currentPage: 1, initialFilters, initialSortField: null, initialSortOrder: null, error: errorData.message || 'Failed to load assessments.' } };
+            return { props: { initialAssessments: [], totalAssessments: 0, totalPages: 0, currentPage: 1, initialFilters, initialRiskFilter: null, initialSortField: null, initialSortOrder: null, error: errorData.message || 'Failed to load assessments.' } };
         }
 
         const data = await response.json();
@@ -631,13 +706,14 @@ export const getServerSideProps: GetServerSideProps<DoctorDashboardProps> = asyn
                 totalPages: data.totalPages,
                 currentPage: data.currentPage,
                 initialFilters,
+                initialRiskFilter: null,
                 initialSortField: null,
                 initialSortOrder: null,
             },
         };
     } catch (error: any) {
          console.error('Error fetching assessments server-side (Doctor Dashboard):', error);
-         return { props: { initialAssessments: [], totalAssessments: 0, totalPages: 0, currentPage: 1, initialFilters, initialSortField: null, initialSortOrder: null, error: error.message || 'Server error fetching assessments.' } };
+         return { props: { initialAssessments: [], totalAssessments: 0, totalPages: 0, currentPage: 1, initialFilters, initialRiskFilter: null, initialSortField: null, initialSortOrder: null, error: error.message || 'Server error fetching assessments.' } };
     }
 };
 
