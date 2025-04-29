@@ -185,7 +185,7 @@ const ResultsPage: NextPage<ResultsPageProps> = ({ assessment: initialAssessment
                      <span className={`font-bold ${assessment.formData.diabetes ? 'text-red-700 text-base' : 'text-green-600'}`}> {assessment.formData.diabetes ? 'Yes' : 'No'}</span>
                  </p>
                  {assessment.formData.diabetes && (
-                    <p className="text-xs text-gray-600 mt-2 font-medium">
+                    <p className="text-xs text-gray-400 mt-2 font-medium">
                         {assessment.higherRiskDisease === 'glaucoma' && "Note: Diabetes is a known risk factor for Glaucoma."}
                         {assessment.higherRiskDisease === 'cancer' && "Note: Diabetes can increase the risk for certain types of Cancer."}
                         {assessment.higherRiskDisease === 'both' && "Note: Diabetes is a known risk factor for both Glaucoma and certain types of Cancer."}
@@ -245,10 +245,15 @@ const ResultsPage: NextPage<ResultsPageProps> = ({ assessment: initialAssessment
 
         {/* Primary Risk and Recommendations */}
         <div className={`p-5 ${recommendationBoxStyle} rounded-lg shadow-md`}>
-             <h2 className="text-xl font-semibold text-gray-900 mb-3 border-b border-current pb-2">Risk Summary & Recommendations</h2>
+             <h2 className="text-xl font-semibold text-white mb-3 border-b border-current pb-2">Risk Summary & Recommendations</h2>
             <div className="mb-4">
-                <span className="font-medium text-gray-700">Highest Risk Identified: </span>
-                <span className="font-bold text-lg text-gray-900">
+                <span className="font-medium text-gray-50">Highest Risk Identified: </span>
+                <span className={`font-extrabold text-lg ${
+                    assessment.higherRiskDisease === 'glaucoma' ? 'text-green-300' :
+                    assessment.higherRiskDisease === 'cancer' ? 'text-purple-300' :
+                    assessment.higherRiskDisease === 'both' ? 'text-white' :
+                    'text-gray-50'
+                }`}>
                     {assessment.higherRiskDisease === 'both' ? 'Glaucoma & Cancer (Equal Risk)'
                         : assessment.higherRiskDisease === 'none' ? 'None (Low Risk Overall)'
                         : assessment.higherRiskDisease.charAt(0).toUpperCase() + assessment.higherRiskDisease.slice(1)
@@ -256,25 +261,25 @@ const ResultsPage: NextPage<ResultsPageProps> = ({ assessment: initialAssessment
                 </span>
             </div>
 
-            <h3 className="font-semibold text-gray-700 mb-2">Recommendations:</h3>
+            <h3 className="font-semibold text-gray-50 mb-2">Recommendations:</h3>
             
             {/* Glaucoma Section - Always Rendered */}
             <div className="mb-2">
-                <h4 className={`font-medium text-green-700 ${assessment.higherRiskDisease === 'glaucoma' || assessment.higherRiskDisease === 'both' ? 'font-bold' : ''}`}>Glaucoma:</h4>
-                <p className={`text-sm text-gray-600 ${assessment.higherRiskDisease === 'glaucoma' || assessment.higherRiskDisease === 'both' ? 'font-semibold' : ''}`}>
+                <h4 className={`font-bold text-green-200 ${assessment.higherRiskDisease === 'glaucoma' || assessment.higherRiskDisease === 'both' ? 'font-extrabold' : ''}`}>Glaucoma:</h4>
+                <p className={`text-sm text-gray-100 ${assessment.higherRiskDisease === 'glaucoma' || assessment.higherRiskDisease === 'both' ? 'font-extrabold' : ''}`}>
                     {assessment.glaucomaRecommendations}
                  </p>
             </div>
             
             {/* Cancer Section - Always Rendered */}
              <div className="mb-2">
-                <h4 className={`font-medium text-purple-700 ${assessment.higherRiskDisease === 'cancer' || assessment.higherRiskDisease === 'both' ? 'font-bold' : ''}`}>Cancer:</h4>
-                <p className={`text-sm text-gray-600 ${assessment.higherRiskDisease === 'cancer' || assessment.higherRiskDisease === 'both' ? 'font-semibold' : ''}`}>
+                <h4 className={`font-medium text-purple-200 ${assessment.higherRiskDisease === 'cancer' || assessment.higherRiskDisease === 'both' ? 'font-extrabold' : ''}`}>Cancer:</h4>
+                <p className={`text-sm text-gray-100 ${assessment.higherRiskDisease === 'cancer' || assessment.higherRiskDisease === 'both' ? 'font-extrabold' : ''}`}>
                     {assessment.cancerRecommendations}
                  </p>
             </div>
 
-             <p className="text-xs text-gray-500 mt-4 italic">Remember: This assessment provides early detection of cancer and glaucoma. Consult with a healthcare professional for the full diagnosis and treatment.</p>
+             <p className="text-xs text-gray-50 mt-4 italic">Remember: This assessment provides early detection of cancer and glaucoma. Consult with a healthcare professional for the full diagnosis and treatment.</p>
         </div>
 
         {/* Back Button */}
