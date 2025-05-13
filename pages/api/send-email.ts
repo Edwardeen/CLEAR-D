@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import nodemailer from 'nodemailer';
-import { getSession } from 'next-auth/react';
+import { unstable_getServerSession } from 'next-auth/next';
+import { authOptions } from './auth/[...nextauth]';
 import { IAssessment } from '../../models/Assessment'; // Assuming IAssessment includes necessary fields
 
 // Nodemailer transporter setup (using environment variables)
@@ -24,7 +25,7 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  const session = await getSession({ req });
+  const session = await unstable_getServerSession(req, res, authOptions);
 
   // Basic check to ensure the request comes from an authenticated session,
   // though the actual user details are passed in the body for clarity.

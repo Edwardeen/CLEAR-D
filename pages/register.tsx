@@ -3,8 +3,10 @@ import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import React from 'react';
-import { getSession } from 'next-auth/react';
-
+import { getServerSession } from 'next-auth';
+import { authOptions } from './api/auth/[...nextauth]';
+import Image from 'next/image';
+import Logo from 'logo.png'
 const RegisterPage: NextPage = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -63,22 +65,43 @@ const RegisterPage: NextPage = () => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-[calc(100vh-200px)] bg-gray-50 px-4">
-      <div className="max-w-md w-full bg-white p-8 rounded-lg shadow-lg">
-        <h2 className="text-2xl font-bold text-center text-gray-800 mb-6">Register</h2>
+    <div className="relative flex items-center justify-center min-h-screen overflow-hidden bg-gradient-to-br from-slate-100 via-gray-100 to-purple-50 p-4 sm:p-6 lg:p-8">
+      {/* Register Card */}
+      <div className="relative max-w-md w-full space-y-6 bg-white p-8 sm:p-10 rounded-2xl shadow-xl border border-gray-200/50">
+        <div className="text-center">
+           {/* Logo */}
+          <Image 
+              src={Logo}
+              alt="Logo" 
+              width={200}
+              height={60}
+              className="mx-auto mb-4"
+          />
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">
+            Create your account
+          </h2>
+           <p className="mt-2 text-sm text-gray-600">
+            Join the CLEAR-D platform.
+          </p>
+        </div>
+        
         <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Error and Success Messages */}
           {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded text-sm" role="alert">
-              {error}
+            <div className="bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded-md text-sm flex items-center space-x-2" role="alert">
+              <span>{error}</span>
             </div>
           )}
            {success && (
-            <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded text-sm" role="alert">
-              {success}
+            <div className="bg-green-50 border border-green-300 text-green-700 px-4 py-3 rounded-md text-sm flex items-center space-x-2" role="alert">
+               {/* Optional: Success Icon */}
+              <span>{success}</span>
             </div>
           )}
+          
+          {/* Input Fields */}
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
               Full Name
             </label>
             <input
@@ -89,14 +112,14 @@ const RegisterPage: NextPage = () => {
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out"
               placeholder="John Doe"
-              disabled={loading}
+              disabled={loading || !!success}
             />
           </div>
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
               Email address
             </label>
             <input
@@ -107,14 +130,14 @@ const RegisterPage: NextPage = () => {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out"
               placeholder="you@example.com"
-              disabled={loading}
+              disabled={loading || !!success}
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
               Password
             </label>
             <input
@@ -125,14 +148,14 @@ const RegisterPage: NextPage = () => {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out"
               placeholder="Min. 6 characters"
-              disabled={loading}
+              disabled={loading || !!success}
             />
           </div>
 
            <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
               Confirm Password
             </label>
             <input
@@ -143,28 +166,41 @@ const RegisterPage: NextPage = () => {
               required
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className={`mt-1 block w-full px-3 py-2 border ${password !== confirmPassword && confirmPassword ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+              className={`block w-full px-3 py-2 border ${password !== confirmPassword && confirmPassword ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'} rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:border-transparent sm:text-sm transition duration-150 ease-in-out`}
               placeholder="Re-enter password"
-              disabled={loading}
+              disabled={loading || !!success}
             />
              {password !== confirmPassword && confirmPassword && (
-                <p className="text-red-500 text-xs mt-1">Passwords do not match.</p>
+                <p className="text-red-600 text-xs mt-1">Passwords do not match.</p>
             )}
           </div>
 
+          {/* Submit Button */}
           <div>
             <button
               type="submit"
-              disabled={loading || !!success} // Disable after success too
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={loading || !!success} 
+              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-70 disabled:cursor-not-allowed transition duration-150 ease-in-out"
             >
-              {loading ? 'Registering...' : 'Register'}
+              {loading ? (
+                 <>
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Registering...
+                </>
+              ) : ( 
+                'Register'
+              )}
             </button>
           </div>
         </form>
-        <p className="mt-6 text-center text-sm text-gray-600">
+        
+        {/* Login Link */}
+        <p className="mt-8 text-center text-sm text-gray-600">
             Already have an account?{' '}
-            <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500">
+            <Link href="/login" className="font-semibold text-blue-600 hover:text-blue-500 hover:underline ml-1 transition duration-150 ease-in-out">
                 Login here
             </Link>
         </p>
@@ -175,7 +211,7 @@ const RegisterPage: NextPage = () => {
 
 // Prevent authenticated users from accessing the register page
 export const getServerSideProps: GetServerSideProps = async (context) => {
-  const session = await getSession(context);
+  const session = await getServerSession(context.req, context.res, authOptions);
 
   if (session) {
     return {
@@ -187,7 +223,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   }
 
   return {
-    props: {}, // No props needed for the registration page
+    props: {},
   };
 };
 

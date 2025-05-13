@@ -10,7 +10,8 @@ export const authOptions: NextAuthOptions = {
       name: 'Credentials',
       credentials: {
         email: { label: "Email", type: "email", placeholder: "jsmith@example.com" },
-        password: { label: "Password", type: "password" }
+        password: { label: "Password", type: "password" },
+        expectedRole: { label: "Expected Role", type: "text" }
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
@@ -35,8 +36,13 @@ export const authOptions: NextAuthOptions = {
           console.log('Invalid password for user:', credentials.email);
           throw new Error('Invalid password.');
         }
+        
+        if (credentials.expectedRole && user.role !== credentials.expectedRole) {
+          console.log(`Role mismatch for ${user.email}. Expected ${credentials.expectedRole}, got ${user.role}`);
+          throw new Error(`Access Denied: Account does not have the required role (${credentials.expectedRole}).`);
+        }
 
-        console.log('Login successful for:', user.email);
+        console.log('Login successful for:', user.email, 'with role:', user.role);
         // Return user object without password
         return {
           id: user._id.toString(),
