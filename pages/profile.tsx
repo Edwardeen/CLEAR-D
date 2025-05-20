@@ -40,9 +40,8 @@ const ProfilePageWrapper = ({ session }: { session: any }) => {
   return (
     <SessionProvider 
       session={session} 
-      refetchInterval={0} // Disable auto-refresh
-      refetchOnWindowFocus={false}
-      refetchWhenOffline={false}
+      refetchInterval={5 * 60} // Refresh session every 5 minutes
+      refetchOnWindowFocus={true}
     >
       <ProfilePage />
     </SessionProvider>
@@ -51,22 +50,36 @@ const ProfilePageWrapper = ({ session }: { session: any }) => {
 
 // Server-side props to authenticate and pass session to wrapper
 export const getServerSideProps: GetServerSideProps = async (context) => {
-  const session = await getServerSession(context.req, context.res, authOptions);
+  try {
+    const session = await getServerSession(context.req, context.res, authOptions);
 
-  if (!session) {
+    if (!session) {
+      console.log("[profile] Server: No session found, redirecting to login");
+      return {
+        redirect: {
+          destination: '/login?callbackUrl=/profile',
+          permanent: false,
+        }
+      };
+    }
+
+    // Ensure session is properly serialized
+    const serializedSession = JSON.parse(JSON.stringify(session));
+    
+    return {
+      props: { 
+        session: serializedSession
+      },
+    };
+  } catch (error) {
+    console.error("[profile] Server: Error in getServerSideProps:", error);
     return {
       redirect: {
-        destination: '/login?callbackUrl=/profile',
+        destination: '/login?callbackUrl=/profile&error=server_error',
         permanent: false,
       }
     };
   }
-
-  return {
-    props: { 
-      session: JSON.parse(JSON.stringify(session)) 
-    },
-  };
 };
 
 const ProfilePage = () => {
@@ -443,6 +456,15 @@ const ProfilePage = () => {
     };
   }, [status, session]);
 
+  // Effect for redirecting on authentication status change
+  useEffect(() => {
+    // Only redirect if explicitly unauthenticated, not during loading
+    if (status === 'unauthenticated') {
+      console.log('Profile: Detected unauthenticated status, redirecting to login');
+      router.push('/login?callbackUrl=/profile');
+    }
+  }, [status, router]);
+
   // Functions that don't need memoization because they don't have dependencies
   const getFullName = () => {
     if (!userData.name) return '';
@@ -492,8 +514,12 @@ const ProfilePage = () => {
 
   if (status === 'loading') {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <div className="flex justify-center items-center min-h-screen bg-gray-50">
+        <div className="text-center p-8 bg-white rounded-lg shadow-md">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-lg text-gray-700">Loading your profile...</p>
+          <p className="text-sm text-gray-500 mt-2">Please wait while we retrieve your information.</p>
+        </div>
       </div>
     );
   }
