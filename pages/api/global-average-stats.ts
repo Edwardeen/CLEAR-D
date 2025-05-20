@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { unstable_getServerSession } from 'next-auth/next';
+import { getServerSession } from 'next-auth';
 import dbConnect from '../../lib/dbConnect';
 import Assessment from '../../models/Assessment';
 import { authOptions } from './auth/[...nextauth]';
@@ -27,7 +27,7 @@ export default async function handler(
   }
 
   // Get the authenticated session
-  const session = await unstable_getServerSession(req, res, authOptions);
+  const session = await getServerSession(req, res, authOptions);
 
   if (!session || !session.user?.id) {
     return res.status(401).json({ message: 'Unauthorized' });
@@ -36,14 +36,91 @@ export default async function handler(
   await dbConnect();
   
   try {
-    // Calculate overall averages from all assessments
+    // Calculate overall averages from all assessments using conditional aggregation
     const overallStats = await Assessment.aggregate([
       {
         $group: {
           _id: null,
           totalAssessments: { $sum: 1 },
-          averageGlaucomaScore: { $avg: "$glaucomaScore" },
-          averageCancerScore: { $avg: "$cancerScore" }
+          glaucomaCount: { 
+            $sum: { 
+              $cond: [{ $eq: ["$type", "glaucoma"] }, 1, 0] 
+            } 
+          },
+          cancerCount: { 
+            $sum: { 
+              $cond: [{ $eq: ["$type", "cancer"] }, 1, 0] 
+            } 
+          },
+          // For new format:
+          glaucomaScoreSum: { 
+            $sum: { 
+              $cond: [
+                { $eq: ["$type", "glaucoma"] },
+                { $ifNull: ["$totalScore", 0] },
+                0
+              ]
+            } 
+          },
+          cancerScoreSum: { 
+            $sum: { 
+              $cond: [
+                { $eq: ["$type", "cancer"] },
+                { $ifNull: ["$totalScore", 0] },
+                0
+              ]
+            } 
+          },
+          // For legacy format:
+          legacyGlaucomaScoreSum: { 
+            $sum: { $ifNull: ["$glaucomaScore", 0] } 
+          },
+          legacyCancerScoreSum: { 
+            $sum: { $ifNull: ["$cancerScore", 0] } 
+          },
+          legacyGlaucomaCount: { 
+            $sum: { 
+              $cond: [{ $ne: [{ $ifNull: ["$glaucomaScore", null] }, null] }, 1, 0] 
+            } 
+          },
+          legacyCancerCount: { 
+            $sum: { 
+              $cond: [{ $ne: [{ $ifNull: ["$cancerScore", null] }, null] }, 1, 0] 
+            } 
+          }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          totalAssessments: 1,
+          // Calculate average from both formats, prioritizing new format if available
+          averageGlaucomaScore: {
+            $cond: [
+              { $gt: ["$glaucomaCount", 0] },
+              { $divide: ["$glaucomaScoreSum", "$glaucomaCount"] },
+              { 
+                $cond: [
+                  { $gt: ["$legacyGlaucomaCount", 0] },
+                  { $divide: ["$legacyGlaucomaScoreSum", "$legacyGlaucomaCount"] },
+                  0
+                ]
+              }
+            ]
+          },
+          averageCancerScore: {
+            $cond: [
+              { $gt: ["$cancerCount", 0] },
+              { $divide: ["$cancerScoreSum", "$cancerCount"] },
+              { 
+                $cond: [
+                  { $gt: ["$legacyCancerCount", 0] },
+                  { $divide: ["$legacyCancerScoreSum", "$legacyCancerCount"] },
+                  0
+                ]
+              }
+            ]
+          }
         }
       }
     ]);
@@ -55,22 +132,65 @@ export default async function handler(
     const monthlyData = await Assessment.aggregate([
       {
         $match: {
-          timestamp: { $gte: sixMonthsAgo }
+          createdAt: { $gte: sixMonthsAgo }
         }
       },
       {
-        $sort: { timestamp: 1 }
+        $sort: { createdAt: 1 }
       },
       {
         $group: {
           _id: {
-            year: { $year: "$timestamp" },
-            month: { $month: "$timestamp" }
+            year: { $year: "$createdAt" },
+            month: { $month: "$createdAt" }
           },
-          avgGlaucomaScore: { $avg: "$glaucomaScore" },
-          avgCancerScore: { $avg: "$cancerScore" },
+          glaucomaScoreSum: { 
+            $sum: { 
+              $cond: [
+                { $eq: ["$type", "glaucoma"] },
+                { $ifNull: ["$totalScore", 0] },
+                0
+              ]
+            } 
+          },
+          cancerScoreSum: { 
+            $sum: { 
+              $cond: [
+                { $eq: ["$type", "cancer"] },
+                { $ifNull: ["$totalScore", 0] },
+                0
+              ]
+            } 
+          },
+          glaucomaCount: { 
+            $sum: { 
+              $cond: [{ $eq: ["$type", "glaucoma"] }, 1, 0] 
+            } 
+          },
+          cancerCount: { 
+            $sum: { 
+              $cond: [{ $eq: ["$type", "cancer"] }, 1, 0] 
+            } 
+          },
+          // Legacy fields
+          legacyGlaucomaScoreSum: { 
+            $sum: { $ifNull: ["$glaucomaScore", 0] } 
+          },
+          legacyCancerScoreSum: { 
+            $sum: { $ifNull: ["$cancerScore", 0] } 
+          },
+          legacyGlaucomaCount: { 
+            $sum: { 
+              $cond: [{ $ne: [{ $ifNull: ["$glaucomaScore", null] }, null] }, 1, 0] 
+            } 
+          },
+          legacyCancerCount: { 
+            $sum: { 
+              $cond: [{ $ne: [{ $ifNull: ["$cancerScore", null] }, null] }, 1, 0] 
+            } 
+          },
           count: { $sum: 1 },
-          firstTimestamp: { $first: "$timestamp" }
+          firstTimestamp: { $first: "$createdAt" }
         }
       },
       {
@@ -80,14 +200,55 @@ export default async function handler(
         $project: {
           _id: 0,
           month: {
-            $concat: [
-              { $toString: "$_id.month" },
-              "/",
-              { $toString: "$_id.year" }
+            $let: {
+              vars: {
+                monthNames: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+              },
+              in: {
+                $concat: [
+                  { $arrayElemAt: ["$$monthNames", { $subtract: ["$_id.month", 1] }] },
+                  " ",
+                  { $toString: "$_id.year" }
+                ]
+              }
+            }
+          },
+          avgGlaucomaScore: {
+            $round: [
+              {
+                $cond: [
+                  { $gt: ["$glaucomaCount", 0] },
+                  { $divide: ["$glaucomaScoreSum", "$glaucomaCount"] },
+                  { 
+                    $cond: [
+                      { $gt: ["$legacyGlaucomaCount", 0] },
+                      { $divide: ["$legacyGlaucomaScoreSum", "$legacyGlaucomaCount"] },
+                      0
+                    ]
+                  }
+                ]
+              },
+              2
             ]
           },
-          avgGlaucomaScore: { $round: ["$avgGlaucomaScore", 2] },
-          avgCancerScore: { $round: ["$avgCancerScore", 2] },
+          avgCancerScore: {
+            $round: [
+              {
+                $cond: [
+                  { $gt: ["$cancerCount", 0] },
+                  { $divide: ["$cancerScoreSum", "$cancerCount"] },
+                  { 
+                    $cond: [
+                      { $gt: ["$legacyCancerCount", 0] },
+                      { $divide: ["$legacyCancerScoreSum", "$legacyCancerCount"] },
+                      0
+                    ]
+                  }
+                ]
+              },
+              2
+            ]
+          },
           count: 1
         }
       }
@@ -113,6 +274,6 @@ export default async function handler(
     return res.status(200).json(result);
   } catch (error) {
     console.error('GET /api/global-average-stats Error:', error);
-    return res.status(500).json({ message: 'Error calculating global statistics' });
+    return res.status(500).json({ message: 'Error calculating global statistics', error: String(error) });
   }
 } 

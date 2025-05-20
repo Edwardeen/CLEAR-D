@@ -16,7 +16,13 @@ const GlobalStats: React.FC = () => {
       try {
         const response = await fetch('/api/global-average-stats');
         if (!response.ok) {
-          throw new Error('Failed to fetch global statistics');
+          if (response.status === 401) {
+            setError('You do not have permission to view global statistics.');
+          } else {
+            setError('Failed to fetch global statistics');
+          }
+          setLoading(false);
+          return;
         }
         const data = await response.json();
         setStats({
@@ -43,8 +49,16 @@ const GlobalStats: React.FC = () => {
     );
   }
 
-  if (error || !stats) {
-    return null; // Hide component on error to not disrupt the UI
+  if (error) {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-4 mb-6 text-center">
+        <p className="text-red-500">{error}</p>
+      </div>
+    );
+  }
+
+  if (!stats) {
+    return null; // Hide component if no stats available
   }
 
   return (

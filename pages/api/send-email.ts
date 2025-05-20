@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import nodemailer from 'nodemailer';
 import { unstable_getServerSession } from 'next-auth/next';
 import { authOptions } from './auth/[...nextauth]';
-import { IAssessment } from '../../models/Assessment'; // Assuming IAssessment includes necessary fields
+import { IAssessment } from '../../models/Assessment';
 
 // Nodemailer transporter setup (using environment variables)
 const transporter = nodemailer.createTransport({
@@ -15,8 +15,15 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// Extended assessment interface for email with additional properties
+interface ExtendedAssessmentForEmail extends IAssessment {
+  glaucomaScore?: number;
+  cancerScore?: number;
+  higherRiskDisease?: 'glaucoma' | 'cancer' | 'both' | 'none';
+}
+
 interface EmailRequestBody {
-    assessment: IAssessment;
+    assessment: ExtendedAssessmentForEmail;
     userEmail: string;
     userName: string;
 }
@@ -52,10 +59,16 @@ Thank you for completing the health risk assessment.
 
 Here is a summary of your results:
 
-Glaucoma Risk Score: ${assessment.glaucomaScore}/10
-Cancer Risk Score: ${assessment.cancerScore}/10
+Glaucoma Risk Score: ${assessment.glaucomaScore ?? 'N/A'}/10
+Cancer Risk Score: ${assessment.cancerScore ?? 'N/A'}/10
 
-Highest Risk Identified: ${assessment.higherRiskDisease === 'both' ? 'Glaucoma & Cancer (Equal Risk)' : assessment.higherRiskDisease === 'none' ? 'None' : assessment.higherRiskDisease.charAt(0).toUpperCase() + assessment.higherRiskDisease.slice(1)}
+Highest Risk Identified: ${assessment.higherRiskDisease 
+  ? assessment.higherRiskDisease === 'both' 
+    ? 'Glaucoma & Cancer (Equal Risk)' 
+    : assessment.higherRiskDisease === 'none' 
+      ? 'None' 
+      : assessment.higherRiskDisease.charAt(0).toUpperCase() + assessment.higherRiskDisease.slice(1)
+  : 'Not determined'}
 
 Recommendations:
 ${assessment.recommendations}
@@ -74,9 +87,15 @@ The Health Assessment Team
 <p>Thank you for completing the health risk assessment.</p>
 <p>Here is a summary of your results:</p>
 <ul>
-  <li><strong>Glaucoma Risk Score:</strong> ${assessment.glaucomaScore}/10</li>
-  <li><strong>Cancer Risk Score:</strong> ${assessment.cancerScore}/10</li>
-  <li><strong>Highest Risk Identified:</strong> ${assessment.higherRiskDisease === 'both' ? 'Glaucoma & Cancer (Equal Risk)' : assessment.higherRiskDisease === 'none' ? 'None' : assessment.higherRiskDisease.charAt(0).toUpperCase() + assessment.higherRiskDisease.slice(1)}</li>
+  <li><strong>Glaucoma Risk Score:</strong> ${assessment.glaucomaScore ?? 'N/A'}/10</li>
+  <li><strong>Cancer Risk Score:</strong> ${assessment.cancerScore ?? 'N/A'}/10</li>
+  <li><strong>Highest Risk Identified:</strong> ${assessment.higherRiskDisease 
+  ? assessment.higherRiskDisease === 'both' 
+    ? 'Glaucoma & Cancer (Equal Risk)' 
+    : assessment.higherRiskDisease === 'none' 
+      ? 'None' 
+      : assessment.higherRiskDisease.charAt(0).toUpperCase() + assessment.higherRiskDisease.slice(1)
+  : 'Not determined'}</li>
 </ul>
 <p><strong>Recommendations:</strong></p>
 <pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f8f9fa; padding: 10px; border-radius: 4px;">${assessment.recommendations}</pre>

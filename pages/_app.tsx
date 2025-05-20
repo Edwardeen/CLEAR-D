@@ -10,7 +10,15 @@ function MyApp({ Component, pageProps: { session, ...pageProps } }: AppProps) {
   const isAuthPage = router.pathname === '/login' || router.pathname === '/register' || router.pathname === '/doctor/login';
 
   return (
-    <SessionProvider session={session}>
+    <SessionProvider 
+      session={session}
+      // Very long session refetch interval (4 hours) to reduce API calls
+      refetchInterval={14400}
+      // Don't refetch on window focus to prevent excessive API calls
+      refetchOnWindowFocus={false}
+      // Minimize session updates
+      refetchWhenOffline={false}
+    >
       {isAuthPage ? (
         <Component {...pageProps} />
       ) : (

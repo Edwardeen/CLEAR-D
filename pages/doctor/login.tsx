@@ -7,13 +7,13 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import React from 'react';
 
-const DoctorLoginPage: NextPage = () => {
+const OfficialLoginPage: NextPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const router = useRouter();
-  // Doctor login typically redirects to the dashboard
+  // Official login typically redirects to the dashboard
   const defaultCallbackUrl = '/doctor/dashboard'; 
   const { callbackUrl = defaultCallbackUrl } = router.query; 
 
@@ -40,10 +40,10 @@ const DoctorLoginPage: NextPage = () => {
     if (result?.error) {
       // Error from authorize (e.g., wrong password, role mismatch) will be shown
       setError(result.error);
-      console.error('Doctor login failed:', result.error);
+      console.error('Official login failed:', result.error);
     } else if (result?.ok) {
       // Login successful AND role check passed, redirect manually
-      console.log('Doctor login successful, redirecting...');
+      console.log('Official login successful, redirecting...');
       router.push(callbackUrl as string);
     } else {
       setError('An unknown error occurred during login.');
@@ -51,12 +51,12 @@ const DoctorLoginPage: NextPage = () => {
   };
 
   return (
-    // Slightly different styling/text for doctor login
+    // Slightly different styling/text for official login
     <div className="flex items-center justify-center min-h-[calc(100vh-200px)] bg-gradient-to-br from-cyan-50 via-white to-blue-50 px-4 py-12 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-xl">
         <div>
           <h2 className="mt-6 text-center text-3xl font-semibold text-gray-900">
-            Doctor Portal Login
+            Healthcare Official Portal
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
             Access your dashboard
@@ -83,7 +83,7 @@ const DoctorLoginPage: NextPage = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm transition duration-150 ease-in-out"
-                placeholder="Doctor Email address"
+                placeholder="Official Email address"
                 disabled={loading}
               />
             </div>
@@ -122,12 +122,12 @@ const DoctorLoginPage: NextPage = () => {
               disabled={loading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-60 disabled:cursor-not-allowed transition duration-150 ease-in-out"
             >
-              {loading ? 'Signing in...' : 'Sign in as Doctor'}
+              {loading ? 'Signing in...' : 'Sign in as Official'}
             </button>
           </div>
         </form>
          <p className="mt-6 text-center text-sm text-gray-600">
-            Not a Doctor?{' '}
+            Not a Healthcare Official?{' '}
             <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500 transition duration-150 ease-in-out">
                User Login
             </Link>
@@ -137,13 +137,13 @@ const DoctorLoginPage: NextPage = () => {
   );
 };
 
-// Prevent authenticated users (especially doctors) from accessing this login page
+// Prevent authenticated users (especially officials) from accessing this login page
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const session = await getServerSession(context.req, context.res, authOptions);
 
   if (session) {
     // If user is logged in, redirect them away
-    const destination = session.user?.role === 'doctor' ? '/doctor/dashboard' : '/'; // Redirect doctors to dash, others to home
+    const destination = session.user?.role === 'doctor' ? '/doctor/dashboard' : '/'; // Redirect officials to dash, others to home
     return {
       redirect: {
         destination: destination, 
@@ -152,10 +152,10 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     };
   }
 
-  // If not logged in, allow access to the doctor login page
+  // If not logged in, allow access to the official login page
   return {
     props: {},
   };
 };
 
-export default DoctorLoginPage; 
+export default OfficialLoginPage; 
