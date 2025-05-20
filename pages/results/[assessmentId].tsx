@@ -173,11 +173,92 @@ const ResultsPage: NextPage<ResultsPageProps> = ({ assessment: initialAssessment
           )}
         </section>
 
-        {/* Recommendations Card */}
-        <section className="bg-white p-6 sm:p-8 rounded-xl shadow-2xl border-t-4" style={{ borderColor: themeColor }}>
-          <h2 className="text-3xl sm:text-4xl font-bold text-gray-800 mb-6 pb-4 border-b-2">Recommendations</h2>
-          <div className="mt-4 prose prose-lg sm:prose-xl max-w-none text-gray-700 leading-relaxed">
-            {recommendationText}
+        {/* Recommendations Card - Redesigned to be more prominent */}
+        <section className="bg-white p-2 rounded-xl shadow-2xl border-t-4 transform transition-all duration-300 hover:scale-[1.01] my-10" style={{ borderColor: themeColor }}>
+          <div className="relative overflow-hidden p-8">
+            {/* Background accent elements */}
+            <div className="absolute top-0 right-0 w-64 h-64 -mt-20 -mr-20 rounded-full bg-gradient-to-b from-blue-50 to-transparent opacity-70"></div>
+            <div className="absolute bottom-0 left-0 w-40 h-40 -mb-10 -ml-10 rounded-full bg-gradient-to-t from-blue-50 to-transparent opacity-70"></div>
+            
+            {/* Content */}
+            <div className="relative z-10">
+              <div className="flex items-center mb-6">
+                <div className="flex-shrink-0 bg-gradient-to-r from-blue-500 to-indigo-600 p-3 rounded-lg shadow-md mr-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                  </svg>
+                </div>
+                <h2 className="text-3xl sm:text-4xl font-bold text-gray-800 tracking-tight">Recommendations</h2>
+              </div>
+              
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-100 shadow-inner mb-6">
+                <div className="flex flex-col md:flex-row md:items-center">
+                  <div className="flex-shrink-0 bg-white p-4 rounded-lg shadow-md mb-4 md:mb-0 md:mr-6">
+                    <p className="text-lg font-bold" style={{ color: themeColor }}>
+                      {riskLevelName}
+                    </p>
+                    <p className="text-sm text-gray-500">Risk Level</p>
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-xl font-bold mb-2 text-gray-800">Our Recommendation</h3>
+                    <p className="text-lg text-gray-700 leading-relaxed">
+                      {recommendationText}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                  <h4 className="font-semibold text-gray-800 mb-2">Next Steps</h4>
+                  <ul className="space-y-2 text-gray-600">
+                    <li className="flex items-start">
+                      <svg className="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                      </svg>
+                      <span>Consult with a healthcare professional</span>
+                    </li>
+                    <li className="flex items-start">
+                      <svg className="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                      </svg>
+                      <span>Share your assessment results</span>
+                    </li>
+                    <li className="flex items-start">
+                      <svg className="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                      </svg>
+                      <span>Schedule follow-up tests if needed</span>
+                    </li>
+                  </ul>
+                </div>
+                
+                <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                  <h4 className="font-semibold text-gray-800 mb-2">Preventive Measures</h4>
+                  <ul className="space-y-2 text-gray-600">
+                    <li className="flex items-start">
+                      <svg className="h-5 w-5 text-blue-500 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                      </svg>
+                      <span>Maintain a healthy diet and regular exercise</span>
+                    </li>
+                    <li className="flex items-start">
+                      <svg className="h-5 w-5 text-blue-500 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                      </svg>
+                      <span>Monitor blood sugar levels closely</span>
+                    </li>
+                    <li className="flex items-start">
+                      <svg className="h-5 w-5 text-blue-500 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                      </svg>
+                      <span>Attend regular health screenings</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 

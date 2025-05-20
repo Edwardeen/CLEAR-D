@@ -10,6 +10,7 @@ import { IIllness } from '../../models/Illness';
 import AssessmentTrendsChart from '../../components/charts/AssessmentTrendsChart';
 import MonthlyAssessmentTrendsChart from '../../components/charts/MonthlyAssessmentTrendsChart';
 import IllnessDistributionChart from '../../components/charts/IllnessDistributionChart';
+import UserTrendChart from '../../components/charts/UserTrendChart';
 
 // Helper debounce function
 const debounce = <F extends (...args: any[]) => void>(func: F, waitFor: number) => {
@@ -103,6 +104,15 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
   const [currentPage, setCurrentPage] = useState<number>(initialCurrentPage);
   const [totalPages, setTotalPages] = useState<number>(initialTotalPages);
   const [totalAssessments, setTotalAssessments] = useState<number>(initialTotalAssessments);
+
+  // State for selected user trend data
+  const [selectedUserEmail, setSelectedUserEmail] = useState<string>('');
+  const [selectedUserName, setSelectedUserName] = useState<string>('');
+  const [selectedUserTrends, setSelectedUserTrends] = useState<{
+    glaucoma: { date: string; score: number }[];
+    cancer: { date: string; score: number }[];
+  }>({ glaucoma: [], cancer: [] });
+  const [loadingUserTrends, setLoadingUserTrends] = useState<boolean>(false);
 
   // State for filters
   const [filters, setFilters] = useState(initialFilters);
@@ -248,17 +258,94 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
             setCurrentPage(data.currentPage);
              // Update URL query params without page reload
              router.push(`/doctor/dashboard?${params.toString()}`, undefined, { shallow: true });
-        } catch (err: any) {
-            setError(err.message);
-             // Reset to empty if fetch fails
-             setAssessments([]);
-             setTotalAssessments(0);
-             setTotalPages(0);
-             setCurrentPage(1);
+             
+             // If a specific user is being filtered, fetch their trend data
+             if (currentFilters.userEmail && currentFilters.userEmail.trim() !== '') {
+                 fetchUserTrends(currentFilters.userEmail);
+             } else {
+                 // Clear user trend data if no specific user is filtered
+                 setSelectedUserEmail('');
+                 setSelectedUserName('');
+                 setSelectedUserTrends({ glaucoma: [], cancer: [] });
+             }
+        } catch (error: any) {
+            console.error('Error fetching assessments:', error);
+            setError(error.message || 'An error occurred while fetching assessments.');
         } finally {
             setLoading(false);
         }
-    }, [router]); // Add dependencies if needed, router used for push
+    }, [router]);
+
+    // Function to fetch trend data for a specific user
+    const fetchUserTrends = async (userEmail: string) => {
+      if (!userEmail) return;
+      
+      setLoadingUserTrends(true);
+      try {
+        // Build query parameters to include all current filters
+        const params = new URLSearchParams();
+        params.set('email', encodeURIComponent(userEmail));
+        
+        // Add date filters if they exist - use the current filters state
+        if (filters.startDate) params.set('startDate', filters.startDate);
+        if (filters.endDate) params.set('endDate', filters.endDate);
+        
+        // Add illness type filter if selected - use the current illnessTypeFilter state
+        if (illnessTypeFilter) params.set('type', illnessTypeFilter);
+        
+        // Add min score filter if it's not zero - use the current minScoreFilter state
+        if (minScoreFilter && minScoreFilter !== '0') {
+          params.set('minScore', minScoreFilter);
+        }
+        
+        console.log('Fetching user trends with params:', params.toString());
+        const response = await fetch(`/api/users/trends?${params.toString()}`);
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error('User trends fetch failed:', response.status, errorData);
+          throw new Error(errorData.detail || errorData.message || `Failed to fetch user trends: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.userName) {
+          setSelectedUserName(data.userName);
+        }
+        
+        setSelectedUserEmail(userEmail);
+        
+        // Process the trend data
+        const glaucomaTrends = (data.assessments || [])
+          .filter((a: any) => a.type === 'glaucoma' && a.totalScore !== undefined)
+          .map((a: any) => ({
+            date: new Date(a.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+            score: a.totalScore
+          }))
+          .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        
+        const cancerTrends = (data.assessments || [])
+          .filter((a: any) => a.type === 'cancer' && a.totalScore !== undefined)
+          .map((a: any) => ({
+            date: new Date(a.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+            score: a.totalScore
+          }))
+          .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        
+        setSelectedUserTrends({
+          glaucoma: glaucomaTrends,
+          cancer: cancerTrends
+        });
+        
+      } catch (error: any) {
+        console.error('Error fetching user trends:', error);
+        setError(error.message || 'Failed to load user trend data');
+        
+        // Clear trend data on error
+        setSelectedUserTrends({ glaucoma: [], cancer: [] });
+      } finally {
+        setLoadingUserTrends(false);
+      }
+    };
 
     // Debounced refetch function for reactive filters
     const debouncedRefetchAssessments = useMemo(() =>
@@ -298,6 +385,11 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
          setFilters(filterInput); 
          setCurrentPage(1); 
          fetchAssessments(1, filterInput, minScoreFilter, illnessTypeFilter, sortField, sortOrder);
+         
+         // Also update user trend chart if user email is set
+         if (filterInput.userEmail && filterInput.userEmail.trim() !== '') {
+           fetchUserTrends(filterInput.userEmail);
+         }
     };
 
      // Reset filters and fetch all data for page 1 with default sort (or current sort)
@@ -311,6 +403,11 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
         setSortOrder(null);
         setCurrentPage(1); 
         fetchAssessments(1, emptyFilters, '0', '', null, null);
+        
+        // Clear user trends when filters are reset
+        setSelectedUserEmail('');
+        setSelectedUserName('');
+        setSelectedUserTrends({ glaucoma: [], cancer: [] });
     };
 
     // New handler for universal min score slider
@@ -324,6 +421,11 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
         sField: sortField,
         sOrder: sortOrder,
       });
+      
+      // Update trend chart for the selected user with new score filter
+      if (selectedUserEmail) {
+        fetchUserTrends(selectedUserEmail);
+      }
     };
 
     // Handler for illness type filter (ensure it calls fetchAssessments with minScoreFilter)
@@ -337,6 +439,11 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
         sField: sortField,
         sOrder: sortOrder,
       });
+      
+      // Update trend chart for the selected user with new illness type filter
+      if (selectedUserEmail) {
+        fetchUserTrends(selectedUserEmail);
+      }
     };
 
     // Handle pagination clicks
@@ -671,41 +778,53 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
         <h2 className="text-xl font-semibold text-gray-700 mb-3">Filters</h2>
             {/* Row 1: Text/Date Filters */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                 {/* User Email Filter */}
+                 {/* User Email Filter - Highlighted when user is selected */}
                 <div>
-                    <label htmlFor="userEmail" className="block text-sm font-medium text-gray-700 mb-1">Filter by User Email</label>
+                    <label htmlFor="userEmail" className="block text-sm font-medium text-gray-700 mb-1">
+                      Filter by User Email {selectedUserEmail && <span className="text-blue-600 ml-1">(Active)</span>}
+                    </label>
                     <input
                         type="email"
                         id="userEmail"
                         name="userEmail"
                         value={filterInput.userEmail}
                         onChange={handleFilterInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+                          selectedUserEmail ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+                        }`}
                         placeholder="user@example.com"
                     />
                 </div>
                  {/* Start Date Filter */}
                 <div>
-                    <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                    <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">
+                      Start Date {filters.startDate && <span className="text-blue-600 ml-1">(Active)</span>}
+                    </label>
                     <input
                         type="date"
                         id="startDate"
                         name="startDate"
                         value={filterInput.startDate}
                         onChange={handleFilterInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+                          filters.startDate ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+                        }`}
                     />
                 </div>
                 {/* End Date Filter */}
                 <div>
-                    <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                    <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">
+                      End Date {filters.endDate && <span className="text-blue-600 ml-1">(Active)</span>}
+                    </label>
                     <input
                         type="date"
                         id="endDate"
                         name="endDate"
                         value={filterInput.endDate}
                         onChange={handleFilterInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+                          filters.endDate ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+                        }`}
                     />
                 </div>
             </div>
@@ -776,9 +895,68 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
       )}
 
       {/* Conditional Content based on activeTab */}
-      <div className="mt-6">
+      <div className="mt-8">
         {activeTab === 'overview' && (
           <div>
+            {/* User-specific trend section - Show when a user is filtered */}
+            {selectedUserEmail && (
+              <div className="mb-8 bg-white p-6 rounded-xl shadow-md border-l-4 border-blue-500">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-semibold text-gray-800">
+                    {selectedUserName ? `${selectedUserName}'s` : 'Selected User'} Assessment History
+                  </h2>
+                  <span className="text-sm text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
+                    Filtered by: {selectedUserEmail}
+                  </span>
+                </div>
+                
+                {/* Show applied filters */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-4">
+                  <div className="bg-gray-50 px-3 py-2 rounded-md text-xs">
+                    <span className="font-medium">Date Range:</span> {filters.startDate || filters.endDate ? 
+                      `${filters.startDate || 'Any'} to ${filters.endDate || 'Any'}` : 
+                      'All time'}
+                  </div>
+                  <div className="bg-gray-50 px-3 py-2 rounded-md text-xs">
+                    <span className="font-medium">Illness Type:</span> {illnessTypeFilter || 'All types'}
+                  </div>
+                  <div className="bg-gray-50 px-3 py-2 rounded-md text-xs">
+                    <span className="font-medium">Min Score:</span> {minScoreFilter || '0'}/10
+                  </div>
+                </div>
+                
+                {loadingUserTrends ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
+                    <p className="mt-2 text-gray-600">Loading user data...</p>
+                  </div>
+                ) : selectedUserTrends.glaucoma.length === 0 && selectedUserTrends.cancer.length === 0 ? (
+                  <div className="text-center py-6 bg-gray-50 rounded-lg border border-gray-200">
+                    <p className="text-gray-600">No assessment history available with current filters.</p>
+                    <p className="text-sm text-gray-500 mt-2">Try adjusting your filters to see more data.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {selectedUserTrends.glaucoma.length > 0 && (
+                      <UserTrendChart 
+                        data={selectedUserTrends.glaucoma} 
+                        title="Glaucoma Risk Score History" 
+                        color="#28a745" 
+                      />
+                    )}
+                    
+                    {selectedUserTrends.cancer.length > 0 && (
+                      <UserTrendChart 
+                        data={selectedUserTrends.cancer} 
+                        title="Cancer Risk Score History" 
+                        color="#e83e8c" 
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-semibold text-gray-800">Assessment Trends</h2>
             <button 
@@ -827,6 +1005,77 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
       )}
       {!loading && assessments.length > 0 && (
         <>
+          <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
+            {/* Filter inputs here */}
+            {/* ... existing filter code ... */}
+          </div>
+
+          {/* User Trend Chart - Show only when a user is filtered */}
+          {selectedUserEmail && (
+            <div className="bg-white p-6 rounded-lg shadow-md mb-6 border-l-4 border-blue-500">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-semibold text-gray-800">
+                  {selectedUserName ? `${selectedUserName}'s` : 'Selected User'} Assessment Trends
+                </h3>
+                <span className="text-sm text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
+                  Email: {selectedUserEmail}
+                </span>
+              </div>
+              
+              {/* Show applied filters */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-4">
+                <div className="bg-gray-50 px-3 py-2 rounded-md text-xs">
+                  <span className="font-medium">Date Range:</span> {filters.startDate || filters.endDate ? 
+                    `${filters.startDate || 'Any'} to ${filters.endDate || 'Any'}` : 
+                    'All time'}
+                </div>
+                <div className="bg-gray-50 px-3 py-2 rounded-md text-xs">
+                  <span className="font-medium">Illness Type:</span> {illnessTypeFilter || 'All types'}
+                </div>
+                <div className="bg-gray-50 px-3 py-2 rounded-md text-xs">
+                  <span className="font-medium">Min Score:</span> {minScoreFilter || '0'}/10
+                </div>
+              </div>
+              
+              {loadingUserTrends ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
+                  <p className="mt-2 text-gray-600">Loading trend data...</p>
+                </div>
+              ) : selectedUserTrends.glaucoma.length === 0 && selectedUserTrends.cancer.length === 0 ? (
+                <div className="text-center py-6 bg-gray-50 rounded-lg border border-gray-200">
+                  <p className="text-gray-600">No assessment history available with current filters.</p>
+                  <p className="text-sm text-gray-500 mt-2">Try adjusting your filters to see more data.</p>
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-600 mb-4">This chart shows the progression of risk scores for the selected user over time.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {selectedUserTrends.glaucoma.length > 0 && (
+                      <div className="border border-green-100 rounded-lg p-4 shadow-sm">
+                        <UserTrendChart 
+                          data={selectedUserTrends.glaucoma} 
+                          title="Glaucoma Risk Score History" 
+                          color="#28a745" 
+                        />
+                      </div>
+                    )}
+                    
+                    {selectedUserTrends.cancer.length > 0 && (
+                      <div className="border border-pink-100 rounded-lg p-4 shadow-sm">
+                        <UserTrendChart 
+                          data={selectedUserTrends.cancer} 
+                          title="Cancer Risk Score History" 
+                          color="#e83e8c" 
+                        />
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           <div className="overflow-x-auto shadow border-b border-gray-200 rounded-lg">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-100">

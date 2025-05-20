@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { FiGithub, FiLinkedin, FiExternalLink, FiAward, FiCode, FiDatabase, FiCloud, FiTrendingUp } from 'react-icons/fi';
 import { useRouter } from 'next/router';
 import { useEffect } from 'react';
+import edward from '../public/edward.jpg';
 
 // Helper component for section titles
 const SectionTitle: React.FC<{ title: string; subtitle?: string; className?: string }> = ({ title, subtitle, className }) => (
@@ -176,7 +177,7 @@ const AboutPage: NextPage = () => {
                   <div className="w-40 h-40 rounded-full overflow-hidden bg-gray-200 mb-4">
                     {/* Replace with actual image if available */}
                     <div className="w-full h-full bg-blue-600 flex items-center justify-center text-white text-2xl font-bold">
-                      ES
+                     <Image src={edward} alt="Edward Nathan Samuel" width={1000} height={1000} />
                     </div>
                   </div>
                   <h3 className="text-2xl font-bold text-gray-800">Edward Nathan Samuel</h3>
@@ -285,7 +286,7 @@ const AboutPage: NextPage = () => {
             {/* Portfolio & Contact */}
             <div className="text-center mt-8">
               <p className="text-gray-700">
-                Explore Edward`&apos;`s full portfolio, source code, and case studies at{' '}
+                Explore Edward&apos;s full portfolio, source code, and case studies at{' '}
                 <a href="https://edwarddnathann.vercel.app/" target="_blank" rel="noopener noreferrer" className="text-blue-600 font-semibold hover:underline">
                   edwarddnathann.vercel.app
                 </a>
