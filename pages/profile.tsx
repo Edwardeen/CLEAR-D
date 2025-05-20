@@ -206,7 +206,7 @@ const ProfilePage = () => {
     } finally {
       setLoadingCard(false);
     }
-  }, [latestScores, generateNewCard, loadingCard]);
+  }, [latestScores, generateNewCard]);
 
   // Update latest scores
   const updateLatestScores = useCallback((assessmentsToUpdate: IAssessment[]) => {
@@ -263,22 +263,14 @@ const ProfilePage = () => {
         setTotalPages(data.totalPages || 1);
         setCurrentPage(data.currentPage);
         updateLatestScores(data.assessments || []);
-        
-        if (data.assessments.length > 0 && !latestCard && !hasTriedFetchingCard.current) {
-          fetchLatestCard(true);
-        }
-        isInitialFetch.current = true;
-        prevPage.current = page;
       }
-      
-      isInitialFetch.current = true;
     } catch (err: any) {
       console.error('Error in fetchAssessmentHistory:', err);
       setError(err.message || 'Failed to load assessment history');
     } finally {
       setLoading(false);
     }
-  }, [latestCard, updateLatestScores, fetchLatestCard, loading]);
+  }, [updateLatestScores]);
 
   // Generate assessment history data
   const generateAssessmentHistoryData = useCallback(() => {
@@ -385,12 +377,26 @@ const ProfilePage = () => {
     }
   }, [status, fetchUserData]);
   
-  // Effect for fetching card data
+  // Effect for fetching card data (initial attempt)
   useEffect(() => {
     if (status === 'authenticated' && !loadingUserData && !loadingCard && !hasTriedFetchingCard.current) {
-      fetchLatestCard();
+      fetchLatestCard(); // Not forced
     }
   }, [status, fetchLatestCard, loadingUserData, loadingCard]);
+
+  // ADDED: New useEffect to fetch card if assessments exist but no card is available
+  useEffect(() => {
+    if (
+      status === 'authenticated' &&
+      assessments.length > 0 &&
+      !latestCard &&
+      !hasTriedFetchingCard.current && // Check if we haven't already tried (or are trying)
+      !loadingCard                   // And not currently loading a card
+    ) {
+      console.log('ProfilePage: Assessments loaded, no card yet, attempting to fetch/generate card.');
+      fetchLatestCard(true); // Force fetch/generate
+    }
+  }, [status, assessments, latestCard, loadingCard, fetchLatestCard]);
   
   // Completely rewrite the effect for fetching assessment history to avoid the infinite loop
   useEffect(() => {
@@ -455,15 +461,6 @@ const ProfilePage = () => {
       hasTriedFetchingAssessments.current = false;
     };
   }, [status, session]);
-
-  // Effect for redirecting on authentication status change
-  useEffect(() => {
-    // Only redirect if explicitly unauthenticated, not during loading
-    if (status === 'unauthenticated') {
-      console.log('Profile: Detected unauthenticated status, redirecting to login');
-      router.push('/login?callbackUrl=/profile');
-    }
-  }, [status, router]);
 
   // Functions that don't need memoization because they don't have dependencies
   const getFullName = () => {

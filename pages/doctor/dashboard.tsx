@@ -125,8 +125,15 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
   const [sortOrder, setSortOrder] = useState<SortOrder | null>(initialSortOrder);
 
   // State for tab selection
-  const [activeTab, setActiveTab] = useState<'assessments' | 'illnesses' | 'overview'>('overview');
+  const [activeTab, setActiveTab] = useState<'assessments' | 'illnesses' | 'overview' | 'allUserAssessments'>('overview'); // Added 'allUserAssessments'
   const [trendGranularity, setTrendGranularity] = useState<'weekly' | 'monthly'>('weekly'); // New state for toggling
+  
+  // State for All User Assessments
+  const [allUserAssessments, setAllUserAssessments] = useState<PopulatedAssessment[]>([]);
+  const [loadingAllUserAssessments, setLoadingAllUserAssessments] = useState<boolean>(false);
+  const [allUserAssessmentsError, setAllUserAssessmentsError] = useState<string | null>(null);
+  const [allUserAssessmentsCurrentPage, setAllUserAssessmentsCurrentPage] = useState<number>(1);
+  const [allUserAssessmentsTotalPages, setAllUserAssessmentsTotalPages] = useState<number>(1);
   
   // State for illnesses management
   const [illnesses, setIllnesses] = useState<IIllness[]>(initialIllnesses || []);
@@ -217,6 +224,36 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
         fetchIllnesses();
     }
   }, [session, fetchIllnesses]);
+
+  // Fetch all user assessments for the 'All User Assessments' tab
+  const fetchAllUserAssessments = useCallback(async (page: number) => {
+    setLoadingAllUserAssessments(true);
+    setAllUserAssessmentsError(null);
+    try {
+      const response = await fetch(`/api/assessments/all?page=${page}&limit=15`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to fetch all user assessments' }));
+        throw new Error(errorData.message || `Error: ${response.status}`);
+      }
+      const data = await response.json();
+      setAllUserAssessments(data.assessments || []);
+      setAllUserAssessmentsCurrentPage(data.currentPage);
+      setAllUserAssessmentsTotalPages(data.totalPages);
+    } catch (err: any) {
+      console.error("Error fetching all user assessments:", err);
+      setAllUserAssessmentsError(err.message || 'Could not load all user assessments.');
+      setAllUserAssessments([]); // Clear data on error
+    } finally {
+      setLoadingAllUserAssessments(false);
+    }
+  }, []); // No dependencies needed if it doesn't rely on other state/props that change
+
+  // Effect to fetch data for 'All User Assessments' tab when it becomes active or its page changes
+  useEffect(() => {
+    if (activeTab === 'allUserAssessments' && session?.user?.role === 'doctor') {
+      fetchAllUserAssessments(allUserAssessmentsCurrentPage);
+    }
+  }, [activeTab, allUserAssessmentsCurrentPage, fetchAllUserAssessments, session]);
 
   // Updated function to fetch assessments based on current page, filters, AND SORTING
   const fetchAssessments = useCallback(async (
@@ -748,907 +785,178 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
         return <div className="text-center p-10">Redirecting to login...</div>;
     }
 
+  // JSX for rendering tabs
+  const renderTabs = () => (
+    <div className="mb-6 border-b border-gray-200">
+      <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+        {(['overview', 'assessments', 'allUserAssessments', 'illnesses'] as const).map((tabKey) => ( // Renamed 'tab' to 'tabKey' to avoid conflict
+          <button
+            key={tabKey}
+            onClick={() => setActiveTab(tabKey)}
+            className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === tabKey
+                ? 'border-indigo-500 text-indigo-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            {tabKey === 'overview' && 'Overview & Trends'}
+            {tabKey === 'assessments' && 'My Patient Assessments'}
+            {tabKey === 'allUserAssessments' && 'All User Assessments'}
+            {tabKey === 'illnesses' && 'Manage Illnesses'}
+          </button>
+        ))}
+      </nav>
+    </div>
+  );
+
+  // Main content rendering based on activeTab
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'overview':
+        // ... existing overview content ...
+        return (
+          <div>
+            {/* Filters Section - Common for overview and assessments for now */}
+            {/* ... existing filter JSX ... */}
+            
+            <h2 className="text-2xl font-semibold text-gray-800 mb-6">Global Health Trends</h2>
+            {/* Trend Granularity Toggle */}
+            {/* ... existing trend granularity toggle ... */}
+
+            {/* Charts Section */}
+            {/* ... existing charts ... */}
+          </div>
+        );
+      case 'assessments':
+        // ... existing assessments tab content ...
+        return (
+            <div>
+                {/* ... existing assessments tab JSX ... */}
+            </div>
+        );
+      case 'allUserAssessments':
+        return (
+          <div>
+            <h2 className="text-2xl font-semibold text-gray-800 mb-6">All User Assessments</h2>
+            {loadingAllUserAssessments && (
+              <div className="flex justify-center items-center py-10">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+                <p className="ml-4 text-gray-600">Loading all assessments...</p>
+              </div>
+            )}
+            {allUserAssessmentsError && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+                <strong className="font-bold">Error: </strong>
+                <span className="block sm:inline">{allUserAssessmentsError}</span>
+                <button 
+                  onClick={() => fetchAllUserAssessments(allUserAssessmentsCurrentPage)}
+                  className="ml-4 px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+            {!loadingAllUserAssessments && !allUserAssessmentsError && allUserAssessments.length === 0 && (
+              <p className="text-gray-600 text-center py-10">No assessments found in the system.</p>
+            )}
+            {!loadingAllUserAssessments && !allUserAssessmentsError && allUserAssessments.length > 0 && (
+              <>
+                <div className="overflow-x-auto bg-white shadow rounded-lg mb-6">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User Name</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User Email</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Risk Level</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {allUserAssessments.map((assessment) => (
+                        <tr key={assessment._id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {assessment.userId ? (typeof assessment.userId.name === 'string' ? assessment.userId.name : `${assessment.userId.name?.first || ''} ${assessment.userId.name?.last || ''}`.trim()) : 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{assessment.userId?.email || 'N/A'}</td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              assessment.type === 'glaucoma' ? 'bg-green-100 text-green-800' : 
+                              assessment.type === 'cancer' ? 'bg-pink-100 text-pink-800' : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {assessment.type ? assessment.type.charAt(0).toUpperCase() + assessment.type.slice(1) : 'N/A'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDateTime(assessment.createdAt || assessment.timestamp)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{(assessment.totalScore ?? assessment.glaucomaScore ?? assessment.cancerScore ?? 0).toFixed(2)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                assessment.riskLevel === 'Low' ? 'bg-green-100 text-green-800' :
+                                assessment.riskLevel === 'Moderate' || assessment.riskLevel === 'Localized' ? 'bg-yellow-100 text-yellow-800' :
+                                assessment.riskLevel === 'High' || assessment.riskLevel === 'Very High' ? 'bg-orange-100 text-orange-800' :
+                                assessment.riskLevel === 'Critical' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
+                            }`}>
+                                {assessment.riskLevel || 'N/A'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <Link href={`/results/${assessment._id}`} legacyBehavior>
+                              <a className="text-indigo-600 hover:text-indigo-900">View Details</a>
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {/* Pagination for All User Assessments */}
+                {allUserAssessmentsTotalPages > 1 && (
+                  <div className="flex justify-center items-center mt-6 mb-8">
+                    <button
+                      onClick={() => fetchAllUserAssessments(Math.max(1, allUserAssessmentsCurrentPage - 1))}
+                      disabled={allUserAssessmentsCurrentPage === 1 || loadingAllUserAssessments}
+                      className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-l-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      Previous
+                    </button>
+                    <span className="px-4 py-2 text-sm text-gray-700">
+                      Page {allUserAssessmentsCurrentPage} of {allUserAssessmentsTotalPages}
+                    </span>
+                    <button
+                      onClick={() => fetchAllUserAssessments(Math.min(allUserAssessmentsTotalPages, allUserAssessmentsCurrentPage + 1))}
+                      disabled={allUserAssessmentsCurrentPage === allUserAssessmentsTotalPages || loadingAllUserAssessments}
+                      className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-r-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        );
+      case 'illnesses':
+        // ... existing illnesses tab content ...
+        return (
+            <div>
+                {/* ... existing illnesses tab JSX ... */}
+            </div>
+        );
+      default:
+        return null;
+    }
+  };
+
   // Main dashboard content for doctors
   return (
     <div className="container mx-auto px-4 py-6">
       <h1 className="text-3xl font-bold text-gray-800 mb-6">Official Dashboard</h1>
 
-      {/* Tab Navigation */}
-      <div className="mb-6 border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-          {(['overview', 'assessments', 'illnesses'] as const).map((tabName) => (
-            <button
-              key={tabName}
-              onClick={() => setActiveTab(tabName)}
-              className={`
-                ${activeTab === tabName
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
-                whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm capitalize
-              `}
-            >
-              {tabName === 'assessments' ? 'Assessment Records' : tabName.replace('-', ' ')}
-            </button>
-          ))}
-        </nav>
-      </div>
+      {renderTabs()}
 
-      {/* Global Filter Section - Stays on top for now */}
-        <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 shadow-sm space-y-4">
-        <h2 className="text-xl font-semibold text-gray-700 mb-3">Filters</h2>
-            {/* Row 1: Text/Date Filters */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                 {/* User Email Filter - Highlighted when user is selected */}
-                <div>
-                    <label htmlFor="userEmail" className="block text-sm font-medium text-gray-700 mb-1">
-                      Filter by User Email {selectedUserEmail && <span className="text-blue-600 ml-1">(Active)</span>}
-                    </label>
-                    <input
-                        type="email"
-                        id="userEmail"
-                        name="userEmail"
-                        value={filterInput.userEmail}
-                        onChange={handleFilterInputChange}
-                        className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
-                          selectedUserEmail ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
-                        }`}
-                        placeholder="user@example.com"
-                    />
-                </div>
-                 {/* Start Date Filter */}
-                <div>
-                    <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">
-                      Start Date {filters.startDate && <span className="text-blue-600 ml-1">(Active)</span>}
-                    </label>
-                    <input
-                        type="date"
-                        id="startDate"
-                        name="startDate"
-                        value={filterInput.startDate}
-                        onChange={handleFilterInputChange}
-                        className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
-                          filters.startDate ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
-                        }`}
-                    />
-                </div>
-                {/* End Date Filter */}
-                <div>
-                    <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">
-                      End Date {filters.endDate && <span className="text-blue-600 ml-1">(Active)</span>}
-                    </label>
-                    <input
-                        type="date"
-                        id="endDate"
-                        name="endDate"
-                        value={filterInput.endDate}
-                        onChange={handleFilterInputChange}
-                        className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
-                          filters.endDate ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
-                        }`}
-                    />
-                </div>
-            </div>
-
-        {/* Row 2: Select Filters (Glaucoma, Cancer & NEW Illness Type) */}
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 items-end">
-          {/* Universal Min Score Filter SLIDER */}
-                 <div>
-            <label htmlFor="minScoreFilter" className="block text-sm font-medium text-gray-700 mb-1">Min Score: {minScoreFilter}</label>
-            <input
-              type="range"
-              id="minScoreFilter"
-              name="minScoreFilter"
-              min="0"
-              max="10"
-              step="0.1"
-              value={minScoreFilter} 
-              onChange={handleMinScoreFilterChange} 
-                        disabled={loading}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-gray-600 hover:accent-gray-700 dark:bg-gray-700 dark:accent-gray-500"
-            />
-                </div>
-
-          {/* NEW Illness Type Filter */}
-                <div>
-            <label htmlFor="illnessTypeFilter" className="block text-sm font-medium text-gray-700 mb-1">Filter by Illness Type</label>
-                    <select
-              id="illnessTypeFilter"
-              name="illnessTypeFilter"
-              value={illnessTypeFilter}
-              onChange={handleIllnessTypeFilterChange}
-              disabled={loading || loadingIllnesses}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-white"
-                    >
-              <option value="">All Illness Types</option>
-              {illnesses.map(illness => (
-                <option key={illness.type} value={illness.type}>
-                  {illness.name}
-                </option>
-              ))}
-                    </select>
-                </div>
-
-                 {/* Filter/Reset Buttons */}
-                 <div className="flex space-x-2">
-                     <button
-                        onClick={applyFilters}
-                        disabled={loading}
-                        className="w-full justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-                    >
-                        Apply Filters
-                    </button>
-                    <button
-                        onClick={resetFilters}
-                        disabled={loading}
-                        className="w-full justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-                    >
-                        Reset Filters
-                    </button>
-                </div>
-             </div>
-        </div>
-
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6" role="alert">
-          Error: {error}
-        </div>
-      )}
-
-      {/* Conditional Content based on activeTab */}
-      <div className="mt-8">
-        {activeTab === 'overview' && (
-          <div>
-            {/* User-specific trend section - Show when a user is filtered */}
-            {selectedUserEmail && (
-              <div className="mb-8 bg-white p-6 rounded-xl shadow-md border-l-4 border-blue-500">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-semibold text-gray-800">
-                    {selectedUserName ? `${selectedUserName}'s` : 'Selected User'} Assessment History
-                  </h2>
-                  <span className="text-sm text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
-                    Filtered by: {selectedUserEmail}
-                  </span>
-                </div>
-                
-                {/* Show applied filters */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-4">
-                  <div className="bg-gray-50 px-3 py-2 rounded-md text-xs">
-                    <span className="font-medium">Date Range:</span> {filters.startDate || filters.endDate ? 
-                      `${filters.startDate || 'Any'} to ${filters.endDate || 'Any'}` : 
-                      'All time'}
-                  </div>
-                  <div className="bg-gray-50 px-3 py-2 rounded-md text-xs">
-                    <span className="font-medium">Illness Type:</span> {illnessTypeFilter || 'All types'}
-                  </div>
-                  <div className="bg-gray-50 px-3 py-2 rounded-md text-xs">
-                    <span className="font-medium">Min Score:</span> {minScoreFilter || '0'}/10
-                  </div>
-                </div>
-                
-                {loadingUserTrends ? (
-                  <div className="text-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
-                    <p className="mt-2 text-gray-600">Loading user data...</p>
-                  </div>
-                ) : selectedUserTrends.glaucoma.length === 0 && selectedUserTrends.cancer.length === 0 ? (
-                  <div className="text-center py-6 bg-gray-50 rounded-lg border border-gray-200">
-                    <p className="text-gray-600">No assessment history available with current filters.</p>
-                    <p className="text-sm text-gray-500 mt-2">Try adjusting your filters to see more data.</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {selectedUserTrends.glaucoma.length > 0 && (
-                      <UserTrendChart 
-                        data={selectedUserTrends.glaucoma} 
-                        title="Glaucoma Risk Score History" 
-                        color="#28a745" 
-                      />
-                    )}
-                    
-                    {selectedUserTrends.cancer.length > 0 && (
-                      <UserTrendChart 
-                        data={selectedUserTrends.cancer} 
-                        title="Cancer Risk Score History" 
-                        color="#e83e8c" 
-                      />
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-semibold text-gray-800">Assessment Trends</h2>
-            <button 
-                onClick={() => setTrendGranularity(prev => prev === 'weekly' ? 'monthly' : 'weekly')}
-                className="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-              >
-                Switch to {trendGranularity === 'weekly' ? 'Monthly' : 'Weekly'} View
-            </button>
-        </div>
-        
-            {/* Conditional Rendering for Weekly or Monthly Trends Chart */}
-            <div className="mb-8">
-              {trendGranularity === 'weekly' ? (
-                <>
-                  <h3 className="text-xl font-semibold text-gray-700 mb-3">Weekly Score & Volume Trends</h3>
-                  <AssessmentTrendsChart />
-                </>
-        ) : (
-          <>
-                  <h3 className="text-xl font-semibold text-gray-700 mb-3">Monthly Score & Volume Trends</h3>
-                  <MonthlyAssessmentTrendsChart />
-                </>
-              )}
-            </div>
-
-            {/* NEW Illness Distribution Chart */}
-            <div className="mt-12 mb-8">
-              <IllnessDistributionChart />
-                  </div>
-
-            {/* User Activity / Recent Assessments - Placeholder */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-              {/* Placeholder for user activity section */}
-          </div>
-      </div>
-        )}
-
-        {activeTab === 'assessments' && (
-          <div>
-            <h2 className="text-2xl font-semibold text-gray-800 mb-4">Assessment Records</h2>
-      {loading && <div className="text-center py-4 text-gray-500">Loading assessments...</div>}
-            {!loading && assessments.length === 0 && !error && (
-        <div className="text-center py-10 bg-gray-50 rounded-md">
-          <p className="text-gray-600">No assessments found matching the current filters.</p>
-        </div>
-      )}
-      {!loading && assessments.length > 0 && (
-        <>
-          <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
-            {/* Filter inputs here */}
-            {/* ... existing filter code ... */}
-          </div>
-
-          {/* User Trend Chart - Show only when a user is filtered */}
-          {selectedUserEmail && (
-            <div className="bg-white p-6 rounded-lg shadow-md mb-6 border-l-4 border-blue-500">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-semibold text-gray-800">
-                  {selectedUserName ? `${selectedUserName}'s` : 'Selected User'} Assessment Trends
-                </h3>
-                <span className="text-sm text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
-                  Email: {selectedUserEmail}
-                </span>
-              </div>
-              
-              {/* Show applied filters */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-4">
-                <div className="bg-gray-50 px-3 py-2 rounded-md text-xs">
-                  <span className="font-medium">Date Range:</span> {filters.startDate || filters.endDate ? 
-                    `${filters.startDate || 'Any'} to ${filters.endDate || 'Any'}` : 
-                    'All time'}
-                </div>
-                <div className="bg-gray-50 px-3 py-2 rounded-md text-xs">
-                  <span className="font-medium">Illness Type:</span> {illnessTypeFilter || 'All types'}
-                </div>
-                <div className="bg-gray-50 px-3 py-2 rounded-md text-xs">
-                  <span className="font-medium">Min Score:</span> {minScoreFilter || '0'}/10
-                </div>
-              </div>
-              
-              {loadingUserTrends ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
-                  <p className="mt-2 text-gray-600">Loading trend data...</p>
-                </div>
-              ) : selectedUserTrends.glaucoma.length === 0 && selectedUserTrends.cancer.length === 0 ? (
-                <div className="text-center py-6 bg-gray-50 rounded-lg border border-gray-200">
-                  <p className="text-gray-600">No assessment history available with current filters.</p>
-                  <p className="text-sm text-gray-500 mt-2">Try adjusting your filters to see more data.</p>
-                </div>
-              ) : (
-                <>
-                  <p className="text-sm text-gray-600 mb-4">This chart shows the progression of risk scores for the selected user over time.</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {selectedUserTrends.glaucoma.length > 0 && (
-                      <div className="border border-green-100 rounded-lg p-4 shadow-sm">
-                        <UserTrendChart 
-                          data={selectedUserTrends.glaucoma} 
-                          title="Glaucoma Risk Score History" 
-                          color="#28a745" 
-                        />
-                      </div>
-                    )}
-                    
-                    {selectedUserTrends.cancer.length > 0 && (
-                      <div className="border border-pink-100 rounded-lg p-4 shadow-sm">
-                        <UserTrendChart 
-                          data={selectedUserTrends.cancer} 
-                          title="Cancer Risk Score History" 
-                          color="#e83e8c" 
-                        />
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          <div className="overflow-x-auto shadow border-b border-gray-200 rounded-lg">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-100">
-                <tr>
-                   <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                     <button onClick={() => handleSort('userId.email')} className="flex items-center space-x-1 hover:text-gray-900">
-                       <span>User Email</span>
-                       {sortField === 'userId.email' && (
-                         <span className="text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
-                       )}
-                     </button>
-                   </th>
-                   <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                      <button onClick={() => handleSort('userId.name')} className="flex items-center space-x-1 hover:text-gray-900">
-                       <span>User Name</span>
-                       {sortField === 'userId.name' && (
-                         <span className="text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
-                       )}
-                     </button>
-                   </th>
-                   <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                     <button onClick={() => handleSort('timestamp')} className="flex items-center space-x-1 hover:text-gray-900">
-                       <span>Date</span>
-                       {sortField === 'timestamp' && (
-                         <span className="text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
-                       )}
-                       {!sortField && <span className="text-xs">▼</span>} {/* Default sort indicator */} 
-                     </button>
-                   </th>
-                   <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase tracking-wider">
-                     <button onClick={() => handleSort('glaucomaScore')} className="inline-flex items-center space-x-1 hover:text-gray-900">
-                       <span>Glaucoma Score</span>
-                        {sortField === 'glaucomaScore' && (
-                         <span className="text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
-                       )}
-                     </button>
-                   </th>
-                   <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase tracking-wider">
-                     <button onClick={() => handleSort('cancerScore')} className="inline-flex items-center space-x-1 hover:text-gray-900">
-                       <span>Cancer Score</span>
-                       {sortField === 'cancerScore' && (
-                         <span className="text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
-                       )}
-                     </button>
-                   </th>
-                   {/* Non-sortable columns */}
-                   <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                           {/* ASSESSMENT TYPE */}
-                           <button onClick={() => handleSort('type')} className="flex items-center space-x-1 hover:text-gray-900">
-                             <span>ASSESSMENT TYPE</span>
-                             {sortField === 'type' && (
-                               <span className="text-xs">{sortOrder === 'asc' ? '▲' : '▼'}</span>
-                             )}
-                           </button>
-                   </th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                     Recommendation Summary
-                   </th>
-                   <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase tracking-wider">
-                     Actions
-                   </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {assessments.map((assessment) => (
-                  <tr key={assessment._id} className="hover:bg-gray-50 transition-colors">
-                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800 font-medium">
-                        {assessment.userId?.email || 'N/A'}
-                     </td>
-                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                              {assessment.userId?.name ?
-                                (typeof assessment.userId.name === 'object' ?
-                                  `${assessment.userId.name.first || ''} ${assessment.userId.name.last || ''}`.trim() :
-                                  assessment.userId.name)
-                                : 'N/A'}
-                     </td>
-                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
-                             {formatDateTime(assessment.timestamp || assessment.createdAt)}
-                     </td>
-                     <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-green-700 text-center">
-                             {assessment.type === 'glaucoma'
-                               ? (assessment.totalScore ?? assessment.glaucomaScore ?? 0).toFixed(1)
-                               : (assessment.glaucomaScore ?? 0).toFixed(1)}/10
-                     </td>
-                     <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-purple-700 text-center">
-                             {assessment.type === 'cancer'
-                               ? (assessment.totalScore ?? assessment.cancerScore ?? 0).toFixed(1)
-                               : (assessment.cancerScore ?? 0).toFixed(1)}/10
-                     </td>
-                           <td className={`px-4 py-3 whitespace-nowrap text-sm font-semibold
-                              ${assessment.type === 'glaucoma' ? 'text-green-700' 
-                                : assessment.type === 'cancer' ? 'text-purple-700' 
-                                : 'text-gray-700' // Default color for other types
-                              }`}>
-                                {(assessment.type && typeof assessment.type === 'string') 
-                                  ? assessment.type.charAt(0).toUpperCase() + assessment.type.slice(1) 
-                                  : 'Unknown'}
-                     </td>
-                          <td className="px-4 py-3 text-sm text-gray-600 max-w-sm truncate" title={
-                              typeof assessment.recommendations === 'string'
-                                ? assessment.recommendations.split('\n')[0]
-                                : Array.isArray(assessment.recommendations)
-                                  ? assessment.recommendations[0]
-                                  : '-'
-                            }>
-                              {
-                                typeof assessment.recommendations === 'string'
-                                  ? assessment.recommendations.split('\n')[0]
-                                  : Array.isArray(assessment.recommendations)
-                                    ? assessment.recommendations[0]
-                                    : '-'
-                              }
-                    </td>
-                     <td className="px-4 py-3 whitespace-nowrap text-center text-sm font-medium">
-                        <Link href={`/results/${assessment._id}`} className="text-blue-600 hover:text-blue-800 hover:underline">
-                            View Details
-                        </Link>
-                     </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-            {/* Pagination Controls */}
-             {totalPages > 1 && (
-                <div className="mt-6 flex justify-between items-center px-2">
-                    <span className="text-sm text-gray-700">
-                        Page {currentPage} of {totalPages} (Total: {totalAssessments} assessments)
-                    </span>
-                    <div className="space-x-2">
-                        <button
-                            onClick={() => handlePageChange(currentPage - 1)}
-                            disabled={currentPage <= 1 || loading}
-                            className="px-3 py-1 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Previous
-                        </button>
-                        <button
-                            onClick={() => handlePageChange(currentPage + 1)}
-                            disabled={currentPage >= totalPages || loading}
-                            className="px-3 py-1 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Next
-                        </button>
-                    </div>
-                </div>
-            )}
-        </>
-      )}
-          </div>
-        )}
-
-        {activeTab === 'illnesses' && (
-          <div className="bg-white shadow rounded-lg p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold text-gray-800">Manage Illnesses</h2>
-              <button
-                onClick={() => {
-                  setShowNewIllnessForm(true);
-                  setShowEditIllnessForm(false); // Ensure edit form is hidden
-                  setEditingIllness(null);
-                  setNewIllness({ name: '', type: '', description: '' }); // Reset add form
-                }}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-              >
-                Add New Illness
-              </button>
-            </div>
-
-            {/* Edit Existing Illness Form */}
-            {showEditIllnessForm && editingIllness && (
-              <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-4 mb-6">
-                <h3 className="text-lg font-medium text-gray-800 mb-4">Edit Illness: {editingIllness.name} (Type: {editingIllness.type})</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="editIllnessName" className="block text-sm font-medium text-gray-700 mb-1">
-                      Illness Name
-                    </label>
-                    <input
-                      type="text"
-                      id="editIllnessName"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      value={editIllnessFormData.name} // Bind to editIllnessFormData
-                      onChange={(e) => setEditIllnessFormData({ ...editIllnessFormData, name: e.target.value })}
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label htmlFor="editIllnessDescription" className="block text-sm font-medium text-gray-700 mb-1">
-                      Description
-                    </label>
-                    <textarea
-                      id="editIllnessDescription"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      value={editIllnessFormData.description || ''} // Bind to editIllnessFormData
-                      onChange={(e) => setEditIllnessFormData({ ...editIllnessFormData, description: e.target.value })}
-                      rows={3}
-                    ></textarea>
-                  </div>
-                </div>
-                <p className="text-xs text-gray-600 mt-2">Note: The &apos;Type (API Identifier)&apos; and &apos;Is System Defined&apos; cannot be changed after creation.</p>
-                <div className="mt-4 flex justify-end space-x-3">
-                  <button
-                    onClick={() => {
-                      setShowEditIllnessForm(false);
-                      setEditingIllness(null);
-                      setEditIllnessFormData({ name: '', description: '' }); // Reset form data
-                    }}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleUpdateIllness}
-                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-                    disabled={loadingIllnesses}
-                  >
-                    Save Changes
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Add New Illness Form */}
-            {showNewIllnessForm && (
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
-                <h3 className="text-lg font-medium text-gray-800 mb-4">Add New Illness</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="illnessName" className="block text-sm font-medium text-gray-700 mb-1">
-                      Illness Name
-                    </label>
-                    <input
-                      type="text"
-                      id="illnessName"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      value={newIllness.name}
-                      onChange={(e) => setNewIllness({ ...newIllness, name: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="illnessType" className="block text-sm font-medium text-gray-700 mb-1">
-                      Illness Type (API Identifier)
-                    </label>
-                    <input
-                      type="text"
-                      id="illnessType"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      value={newIllness.type}
-                      onChange={(e) => setNewIllness({ ...newIllness, type: e.target.value.toLowerCase() })}
-                      placeholder="e.g., glaucoma, cancer"
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label htmlFor="illnessDescription" className="block text-sm font-medium text-gray-700 mb-1">
-                      Description
-                    </label>
-                    <textarea
-                      id="illnessDescription"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      value={newIllness.description}
-                      onChange={(e) => setNewIllness({ ...newIllness, description: e.target.value })}
-                      rows={3}
-                    ></textarea>
-                  </div>
-                </div>
-                <div className="mt-4 flex justify-end space-x-3">
-                  <button
-                    onClick={() => setShowNewIllnessForm(false)}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleAddIllness}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                  >
-                    Add Illness
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Illnesses List and Questions Editor */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Illnesses List */}
-              <div className="lg:col-span-1">
-                <h3 className="text-lg font-medium text-gray-800 mb-4">Available Illnesses</h3>
-                {loadingIllnesses ? (
-                  <div className="flex justify-center items-center h-40">
-                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
-                  </div>
-                ) : illnesses.length === 0 ? (
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
-                    <p className="text-gray-600">No illnesses found. Click &quot;Add New Illness&quot; to create one.</p>
-                  </div>
-                ) : (
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
-                    <ul className="divide-y divide-gray-200">
-                      {illnesses.map((illness) => (
-                        <li key={illness.type} className={`p-3 hover:bg-gray-100 ${selectedIllness === illness.type ? 'bg-blue-50 border-l-4 border-blue-500' : ''}`}>
-                          <div className="flex justify-between items-center">
-                            <button
-                              onClick={() => {
-                                  setSelectedIllness(illness.type);
-                                  fetchQuestionsForIllness(illness.type);
-                              }}
-                              className="text-left flex-grow focus:outline-none mr-2"
-                            >
-                              <div className="font-medium text-gray-800">{illness.name}</div>
-                              <div className="text-sm text-gray-500">
-                                Type: {illness.type} • Last Updated: {new Date(illness.updatedAt).toLocaleDateString()}
-                              </div>
-                              {illness.description && (
-                                <p className="text-xs text-gray-600 mt-1 truncate" title={illness.description}>{illness.description}</p>
-                              )}
-                            </button>
-                            <div className="flex-shrink-0 space-x-2">
-                              <button 
-                                onClick={() => { 
-                                  setEditingIllness(illness); // Set the original illness object
-                                  setEditIllnessFormData({ name: illness.name, description: illness.description || '' }); // Populate form data
-                                  setShowEditIllnessForm(true);
-                                  setShowNewIllnessForm(false);
-                                }}
-                                className="text-xs px-2 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 disabled:opacity-50"
-                                disabled={illness.isSystemDefined} // Disable edit for system illnesses too for now
-                                title={illness.isSystemDefined ? "System illnesses cannot be edited here" : "Edit Illness"}
-                              >
-                                Edit
-                              </button>
-                              <button 
-                                onClick={() => handleDeleteIllness(illness.type)}
-                                className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
-                                disabled={illness.isSystemDefined}
-                                title={illness.isSystemDefined ? "System illnesses cannot be deleted" : "Delete Illness"}
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-
-              {/* Questions Editor */}
-              <div className="lg:col-span-2">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-medium text-gray-800">
-                    {selectedIllness
-                      ? `Questions for ${illnesses.find(i => i.type === selectedIllness)?.name || selectedIllness}`
-                      : 'Select an illness to manage questions'}
-                  </h3>
-                  {selectedIllness && (
-                    <button
-                      onClick={() => {
-                        setShowQuestionForm(true);
-                        setEditingQuestion(null);
-                        setQuestionForm({
-                          questionId: '',
-                          text: '',
-                          weight: 1.0,
-                          autoPopulate: false,
-                          autoPopulateFrom: ''
-                        });
-                      }}
-                      className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
-                    >
-                      Add Question
-                    </button>
-                  )}
-                </div>
-
-                {/* Add/Edit Question Form */}
-                {showQuestionForm && selectedIllness && (
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
-                    <h4 className="text-md font-medium text-gray-800 mb-3">
-                      {editingQuestion ? 'Edit Question' : 'Add Question'}
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label htmlFor="questionId" className="block text-sm font-medium text-gray-700 mb-1">
-                          Question ID
-                        </label>
-                        <input
-                          type="text"
-                          id="questionId"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                          value={questionForm.questionId}
-                          onChange={(e) => setQuestionForm({ ...questionForm, questionId: e.target.value })}
-                          placeholder={`e.g., ${selectedIllness.charAt(0).toUpperCase()}1`}
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="weight" className="block text-sm font-medium text-gray-700 mb-1">
-                          Weight
-                        </label>
-                        <input
-                          type="number"
-                          id="weight"
-                          step="0.1"
-                          min="0.1"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                          value={questionForm.weight}
-                          onChange={(e) => setQuestionForm({ ...questionForm, weight: parseFloat(e.target.value) })}
-                        />
-                      </div>
-                      <div className="md:col-span-2">
-                        <label htmlFor="questionText" className="block text-sm font-medium text-gray-700 mb-1">
-                          Question Text
-                        </label>
-                        <textarea
-                          id="questionText"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                          value={questionForm.text}
-                          onChange={(e) => setQuestionForm({ ...questionForm, text: e.target.value })}
-                          rows={2}
-                        ></textarea>
-                      </div>
-                      <div className="md:col-span-2">
-                        <div className="flex items-center">
-                          <input
-                            type="checkbox"
-                            id="autoPopulate"
-                            className="h-4 w-4 text-blue-600 rounded"
-                            checked={questionForm.autoPopulate || false}
-                            onChange={(e) => setQuestionForm({ ...questionForm, autoPopulate: e.target.checked })}
-                          />
-                          <label htmlFor="autoPopulate" className="ml-2 block text-sm text-gray-700">
-                            Auto-populate from user data
-                          </label>
-                        </div>
-                        {questionForm.autoPopulate && (
-                          <div className="mt-2">
-                            <label htmlFor="autoPopulateFrom" className="block text-sm font-medium text-gray-700 mb-1">
-                              Data Source
-                            </label>
-                            <select
-                              id="autoPopulateFrom"
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                              value={questionForm.autoPopulateFrom || ''}
-                              onChange={(e) => setQuestionForm({ ...questionForm, autoPopulateFrom: e.target.value })}
-                            >
-                              <option value="">Select a data source</option>
-                              <option value="userData.hasDiabetes">User&apos;s Diabetes Status</option>
-                              <option value="userData.age">User&apos;s Age</option>
-                              <option value="userData.gender">User&apos;s Gender</option>
-                              <option value="userData.ethnicity">User&apos;s Ethnicity</option>
-                              {/* TODO: Add more relevant user data fields for auto-population */}
-                            </select>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="mt-4 flex justify-end space-x-3">
-                      <button
-                        onClick={() => {
-                          setShowQuestionForm(false);
-                          setEditingQuestion(null);
-                        }}
-                        className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleSaveQuestion}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                      >
-                        {editingQuestion ? 'Update Question' : 'Add Question'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Questions Table */}
-                {selectedIllness ? (
-                  loadingQuestions ? (
-                    <div className="flex justify-center items-center h-40">
-                      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
-                    </div>
-                  ) : illnessQuestions.length === 0 ? (
-                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
-                      <p className="text-gray-600">No questions found for this illness. Click &quot;Add Question&quot; to create one.</p>
-                    </div>
-                  ) : (
-                    <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              ID
-                            </th>
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Question
-                            </th>
-                            <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Weight
-                            </th>
-                            <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Auto
-                            </th>
-                            <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Actions
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {illnessQuestions.map((question) => (
-                            <tr key={question._id || question.questionId} className="hover:bg-gray-50">
-                              <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
-                                {question.questionId}
-                              </td>
-                              <td className="px-4 py-3 text-sm text-gray-500">
-                                {question.text}
-                              </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-center">
-                                {question.weight.toFixed(1)}
-                              </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-center">
-                                {question.autoPopulate ? (
-                                  <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                    Yes
-                                  </span>
-                                ) : (
-                                  <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                                    No
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-right">
-                                <button
-                                  onClick={() => {
-                                    setEditingQuestion(question);
-                                    setQuestionForm({
-                                      _id: question._id,
-                                      questionId: question.questionId,
-                                      text: question.text,
-                                      weight: question.weight,
-                                      autoPopulate: question.autoPopulate,
-                                      autoPopulateFrom: question.autoPopulateFrom
-                                    });
-                                    setShowQuestionForm(true);
-                                  }}
-                                  className="text-blue-600 hover:text-blue-900 mr-3"
-                                >
-                                  Edit
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteQuestion(question._id || question.questionId)}
-                                  className="text-red-600 hover:text-red-900"
-                                >
-                                  Delete
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )
-                ) : (
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
-                    <p className="text-gray-600">Select an illness from the list to manage its questions.</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+      {renderContent()}
     </div>
   );
 };

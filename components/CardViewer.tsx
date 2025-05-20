@@ -309,7 +309,7 @@ const CardViewer: React.FC<CardViewerProps> = ({
                 Risk Assessment & Recommendations
               </div>
 
-              {card.riskFor.includes('glaucoma') && (
+              {glaucomaScore !== undefined && (
                 <div style={{
                   display: 'flex',
                   justifyContent: 'space-between',
@@ -334,7 +334,7 @@ const CardViewer: React.FC<CardViewerProps> = ({
                 </div>
               )}
 
-              {card.riskFor.includes('cancer') && (
+              {cancerScore !== undefined && (
                 <div style={{
                   display: 'flex',
                   justifyContent: 'space-between',
