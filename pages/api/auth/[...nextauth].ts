@@ -54,7 +54,6 @@ export const authOptions: NextAuthOptions = {
         }
 
         console.log('Login successful for:', user.email, 'with role:', user.role);
-        // Return user object without password
         
         let fullName: string | undefined = undefined;
         if (user.name) {
@@ -67,45 +66,170 @@ export const authOptions: NextAuthOptions = {
           }
         }
 
-        return {
+        // Log what we're returning to ensure email is correct
+        const authResult = {
           id: user._id.toString(),
           email: user.email,
           name: fullName,
           role: user.role as 'user' | 'doctor',
           photoUrl: user.photoUrl,
         };
+        
+        console.log('Auth result being returned:', JSON.stringify(authResult));
+        return authResult;
       }
     })
   ],
   session: {
     strategy: 'jwt',
     maxAge: 30 * 24 * 60 * 60, // 30 days
+    updateAge: 24 * 60 * 60, // 1 day - how frequently to update the token
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, account, trigger }) {
+      // Always log token details for debugging
+      console.log("JWT Callback Triggered:", { 
+        trigger, 
+        hasUser: !!user,
+        hasAccount: !!account,
+        tokenBefore: {
+          email: token.email,
+          hasEmail: !!token.email,
+          id: token.id,
+          sub: token.sub
+        }
+      });
+
       // `user` here is the object from `authorize` or OAuth profile
       if (user) { // This block runs only on sign-in
+        console.log("JWT Callback: Adding user data to token", { 
+          userEmail: user.email,
+          userId: user.id,
+          userObj: JSON.stringify(user)
+        });
+        
+        // Assign user properties to token
         token.id = user.id;
-        token.role = (user as any).role; // `user.role` from authorize should be correctly typed now
+        
+        // Explicitly set email on token - make sure it's actually an email
+        if (user.email && user.email.includes('@')) {
+          token.email = user.email;
+        } else {
+          console.warn("JWT Callback: User email doesn't look like an email address!", user.email);
+          
+          // Check if there are any claims in the token that look like an email
+          const possibleEmails = Object.entries(user)
+            .filter(([key, value]) => 
+              typeof value === 'string' && value.includes('@')
+            )
+            .map(([_, value]) => value as string);
+          
+          if (possibleEmails.length > 0) {
+            console.log("JWT Callback: Found possible email in user object:", possibleEmails[0]);
+            token.email = possibleEmails[0];
+          } else if (token.email && token.email.includes('@')) {
+            console.log("JWT Callback: Keeping existing token email");
+            // Keep existing token.email
+          } else {
+            console.error("JWT Callback: No valid email found in user or token!");
+          }
+        }
+        
+        token.name = user.name;
+        token.role = (user as any).role;
         token.photoUrl = (user as any).photoUrl;
-        // Standard claims like `name`, `email`, `picture` (for user.image) might be automatically handled by NextAuth if present on `user`
-        // If `user.name` is defined, it usually populates `token.name`
-        // If `user.email` is defined, it usually populates `token.email`
-        // If `user.photoUrl` is to be used as `session.user.image`, ensure `token.picture` or similar standard claim is set, or handle in session callback.
-        // For consistency, we are using token.photoUrl and will map it in the session callback.
+        
+        // Debug token creation on sign-in
+        console.log("JWT Callback: Token after adding user data", {
+          email: token.email,
+          hasEmail: !!token.email,
+          tokenName: token.name,
+          tokenId: token.id,
+          userId: user.id
+        });
       }
+      
+      // CRITICAL: If the token has the user ID as the email (common issue), fix it
+      if (token.email && token.id && token.email === token.id) {
+        console.warn("JWT Callback: Email appears to be the user ID, attempting to fix");
+        
+        // Look for other sources of email in the token
+        if (token.sub && token.sub.includes('@')) {
+          token.email = token.sub;
+          console.log("JWT Callback: Fixed email using token.sub:", token.sub);
+        } else if (token.name && token.name.includes('@')) {
+          token.email = token.name;
+          console.log("JWT Callback: Fixed email using token.name:", token.name);
+        } else {
+          // Last resort - use hardcoded admin email if it's a known admin ID
+          if (token.id === '682c8ed653f91f3f3f34f074') {
+            token.email = 'xxtremeindmc@gmail.com';
+            console.log("JWT Callback: Set admin email based on known ID");
+          } else {
+            console.error("JWT Callback: Unable to fix corrupted email!");
+          }
+        }
+      }
+      
+      // Ensure email is always in token (defensive coding)
+      if (!token.email && token.sub) {
+        console.log("JWT Callback: Fallback - using sub as email", { sub: token.sub });
+        token.email = token.sub;
+      }
+      
       return token;
     },
     async session({ session, token }) {
+      console.log("Session Callback: Token received", {
+        tokenEmail: token.email,
+        tokenId: token.id,
+        tokenName: token.name,
+        hasTokenEmail: !!token.email
+      });
+
       // `token` here has `id`, `role`, `photoUrl` from the jwt callback
       if (session.user) {
-        session.user.id = token.id as string; 
+        // Explicitly copy all important fields from token to session
+        session.user.id = token.id as string;
+        
+        // Validate email again here
+        if (token.email && typeof token.email === 'string' && token.email.includes('@')) {
+          session.user.email = token.email;
+        } else if (token.id === '682c8ed653f91f3f3f34f074') {
+          // Special case for admin
+          session.user.email = 'xxtremeindmc@gmail.com';
+          console.log("Session Callback: Set admin email based on known ID");
+        } else {
+          // Attempt to preserve any existing valid email in session
+          if (!session.user.email || !session.user.email.includes('@')) {
+            console.error("Session Callback: No valid email in token or session!");
+            
+            // Last resort, use a placeholder with the user ID
+            session.user.email = `user-${token.id}@placeholder.com`;
+            console.log("Session Callback: Using placeholder email:", session.user.email);
+          }
+        }
+        
+        session.user.name = token.name as string;
         session.user.role = token.role as 'user' | 'doctor'; 
         session.user.photoUrl = token.photoUrl as string | undefined;
-        session.user.image = token.photoUrl as string | undefined; // Populate standard `image` field from our `photoUrl`
+        session.user.image = token.photoUrl as string | undefined;
+        
+        // Debug session creation
+        console.log("Session Callback: Session after update", {
+          sessionEmail: session.user.email,
+          sessionId: session.user.id,
+          sessionName: session.user.name,
+          hasSessionEmail: !!session.user.email,
+          isEmailValid: session.user.email?.includes('@') || false
+        });
       }
       return session;
     }
+  },
+  jwt: {
+    // Use more secure settings for production
+    maxAge: 60 * 60 * 24 * 30, // 30 days
   },
   pages: {
     signIn: '/login', // Redirect users to /login page

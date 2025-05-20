@@ -8,6 +8,7 @@ import QuestionBank from '../../models/QuestionBank'; // Import without IQuestio
 import Assessment from '../../models/Assessment'; // Adjusted path
 import { ParsedUrlQuery } from 'querystring';
 import { IQuestionBankItem } from '../../models/QuestionBank'; // Import the actual interface
+import { useServerStatus } from '../../contexts/ServerStatusContext'; // Added
 
 // Define question interface used in props (can use specific properties from IQuestionBankItem)
 interface IQuestion {
@@ -28,6 +29,7 @@ interface AssessmentPageProps {
 const AssessmentPage: NextPage<AssessmentPageProps> = ({ assessmentType, questions, error, existingAssessmentId }) => {
   const router = useRouter();
   const { data: session, status } = useSession();
+  const { isServerOnline } = useServerStatus(); // Added
   const [responses, setResponses] = useState<{ [key: string]: string }>({});
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -70,6 +72,14 @@ const AssessmentPage: NextPage<AssessmentPageProps> = ({ assessmentType, questio
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+
+    if (!isServerOnline) {
+      console.warn("Simulated server offline. Assessment submission aborted.");
+      setSubmissionError("Server connection is offline. Cannot submit assessment.");
+      setIsSubmitting(false); // Ensure isSubmitting is reset
+      return;
+    }
+
     setIsSubmitting(true);
     setSubmissionError(null);
 

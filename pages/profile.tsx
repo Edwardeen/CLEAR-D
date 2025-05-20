@@ -23,6 +23,7 @@ import { downloadComponentAsPdf } from '../utils/downloadAsPdf';
 import type { GetServerSideProps } from 'next';
 import { getServerSession } from 'next-auth';
 import { authOptions } from './api/auth/[...nextauth]';
+import { useServerStatus } from '../contexts/ServerStatusContext';
 
 // Register Chart.js components
 ChartJS.register(
@@ -85,6 +86,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 const ProfilePage = () => {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const { isServerOnline } = useServerStatus();
   const [assessments, setAssessments] = useState<IAssessment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -157,6 +159,11 @@ const ProfilePage = () => {
 
   // Generate new card
   const generateNewCard = useCallback(async () => {
+    if (!isServerOnline) {
+      console.warn("Simulated server offline. Card generation aborted.");
+      setError('Server connection is offline. Cannot generate new card.');
+      return;
+    }
     try {
       const res = await fetch('/api/cards', { method: 'POST' });
       if (res.ok) {
@@ -166,10 +173,16 @@ const ProfilePage = () => {
     } catch (err) {
       console.error('Error generating card:', err);
     }
-  }, []);
+  }, [isServerOnline, setError, setLatestCard]);
 
   // Fetch user data
   const fetchUserData = useCallback(async () => {
+    if (!isServerOnline) {
+      console.warn("Simulated server offline. User data fetch aborted.");
+      setError("Server connection is offline. Cannot fetch user data.");
+      setLoadingUserData(false);
+      return;
+    }
     setLoadingUserData(true);
     try {
       const response = await fetch('/api/users/me');
@@ -181,11 +194,17 @@ const ProfilePage = () => {
     } finally {
       setLoadingUserData(false);
     }
-  }, []); 
+  }, [isServerOnline, setError, setUserData, setLoadingUserData]);
 
   // Fetch latest card
   const fetchLatestCard = useCallback(async (force = false) => {
-    if (loadingCard || (hasTriedFetchingCard.current && !force)) return;
+    if (!isServerOnline) {
+      console.warn("Simulated server offline. Card fetch aborted.");
+      setLoadingCard(false);
+      setError('Server connection is offline. Cannot fetch card data.');
+      return;
+    }
+    if ((hasTriedFetchingCard.current && !force)) return;
     
     try {
       setLoadingCard(true);
@@ -206,7 +225,7 @@ const ProfilePage = () => {
     } finally {
       setLoadingCard(false);
     }
-  }, [latestScores, generateNewCard]);
+  }, [isServerOnline, latestScores, generateNewCard, setError, setLatestCard, setLoadingCard, hasTriedFetchingCard]);
 
   // Update latest scores
   const updateLatestScores = useCallback((assessmentsToUpdate: IAssessment[]) => {
@@ -236,8 +255,14 @@ const ProfilePage = () => {
 
   // Fetch assessment history
   const fetchAssessmentHistory = useCallback(async (page: number, force = false) => {
-    if (loading && !force) {
-      console.log('fetchAssessmentHistory: Concurrent fetch prevented by its own loading state.');
+    if (!isServerOnline) {
+      console.warn("Simulated server offline. Assessment history fetch aborted.");
+      setError("Server connection is offline. Cannot fetch assessment history.");
+      setLoading(false);
+      return;
+    }
+    if ((!force && hasTriedFetchingAssessments.current && currentPage === page)) {
+      console.log('fetchAssessmentHistory: Concurrent or redundant fetch prevented.');
       return;
     }
     
@@ -270,7 +295,7 @@ const ProfilePage = () => {
     } finally {
       setLoading(false);
     }
-  }, [updateLatestScores]);
+  }, [isServerOnline, updateLatestScores, fetchLatestCard, setError, setLoading, hasTriedFetchingAssessments, currentPage]);
 
   // Generate assessment history data
   const generateAssessmentHistoryData = useCallback(() => {

@@ -126,200 +126,171 @@ const HomePage: NextPage = () => {
   // Common sections for both authenticated and unauthenticated users
   const renderPublicSections = () => (
     <>
-      {/* About Snippet Section - What is CLEAR-D? */}
-      <section className="py-16 md:py-24 bg-white">
-        <div className="container mx-auto px-6">
-          <SectionTitle title="Understanding CLEAR-D" subtitle="Your Health Partner" />
-          <div className="max-w-3xl mx-auto text-center text-gray-700 space-y-6">
-            <p className="text-lg">
-              CLEAR-D (Cancer & Glaucoma Early Recognition for Diabetics) is a dedicated platform designed to empower individuals with diabetes to take proactive steps towards managing their health risks. We provide accessible online assessment tools to help identify early signs associated with glaucoma and certain cancers, conditions often exacerbated by diabetes.
-            </p>
-            <p>
-              Our mission is to foster awareness, encourage timely medical consultation, and ultimately contribute to better health outcomes through early detection and informed action.
-            </p>
-            <div>
-              <Link href="/about" legacyBehavior>
-                <a className="text-blue-600 hover:text-blue-800 font-semibold transition duration-300">Learn more about our mission &rarr;</a>
-              </Link>
+        {/* About Snippet Section - What is CLEAR-D? */}
+        <section className="py-16 md:py-24 bg-white">
+          <div className="container mx-auto px-6">
+            <SectionTitle title="Understanding CLEAR-D" subtitle="Your Health Partner" />
+            <div className="max-w-3xl mx-auto text-center text-gray-700 space-y-6">
+              <p className="text-lg">
+                CLEAR-D (Cancer & Glaucoma Early Recognition for Diabetics) is a dedicated platform designed to empower individuals with diabetes to take proactive steps towards managing their health risks. We provide accessible online assessment tools to help identify early signs associated with glaucoma and certain cancers, conditions often exacerbated by diabetes.
+              </p>
+              <p>
+                Our mission is to foster awareness, encourage timely medical consultation, and ultimately contribute to better health outcomes through early detection and informed action.
+              </p>
+              <div>
+                <Link href="/about" legacyBehavior>
+                  <a className="text-blue-600 hover:text-blue-800 font-semibold transition duration-300">Learn more about our mission &rarr;</a>
+                </Link>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Key Features Section */}
-      <section className="py-16 md:py-24 bg-gray-50">
-        <div className="container mx-auto px-6">
-          <SectionTitle title="Why Choose CLEAR-D?" subtitle="Key Benefits" />
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <FeatureCard 
-              icon={<FiEye />} 
-              title="Specialized Assessments" 
-              description="Tailored screening tools for Glaucoma and Cancer risks, specifically considering diabetic health factors."
-            />
-            <FeatureCard 
-              icon={<FiUserCheck />} 
-              title="Personalized Indications" 
-              description="Receive immediate risk level indications based on your responses, guiding your next steps."
-            />
-            <FeatureCard 
-              icon={<FiBarChart2 />} 
-              title="Track Your Health" 
+        {/* Key Features Section */}
+        <section className="py-16 md:py-24 bg-gray-50">
+          <div className="container mx-auto px-6">
+            <SectionTitle title="Why Choose CLEAR-D?" subtitle="Key Benefits" />
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+              <FeatureCard 
+                icon={<FiEye />} 
+                title="Specialized Assessments" 
+                description="Tailored screening tools for Glaucoma and Cancer risks, specifically considering diabetic health factors."
+              />
+              <FeatureCard 
+                icon={<FiUserCheck />} 
+                title="Personalized Indications" 
+                description="Receive immediate risk level indications based on your responses, guiding your next steps."
+              />
+              <FeatureCard 
+                icon={<FiBarChart2 />} 
+                title="Track Your Health" 
               description="Monitor your assessment history and understand your health trends over time (requires login)."
-            />
-            <FeatureCard 
-              icon={<FiShield />} 
-              title="Privacy Focused" 
-              description="Your data is handled with utmost confidentiality and security. We prioritize your privacy."
-            />
-            <FeatureCard 
-              icon={<FiHeart />} 
-              title="Diabetic Centric" 
-              description="Information and resources focused on the unique health challenges faced by individuals with diabetes."
-            />
-            <FeatureCard 
-              icon={<FiActivity />} 
-              title="Promotes Early Action"
-              description="Encourages timely consultation with healthcare professionals for early diagnosis and management."
-            />
+              />
+               <FeatureCard 
+                icon={<FiShield />} 
+                title="Privacy Focused" 
+                description="Your data is handled with utmost confidentiality and security. We prioritize your privacy."
+              />
+              <FeatureCard 
+                icon={<FiHeart />} 
+                title="Diabetic Centric" 
+                description="Information and resources focused on the unique health challenges faced by individuals with diabetes."
+              />
+              <FeatureCard 
+                icon={<FiActivity />} 
+                title="Promotes Early Action"
+                description="Encourages timely consultation with healthcare professionals for early diagnosis and management."
+              />
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* How It Works Section */}
-      <section className="py-16 md:py-24 bg-white">
-        <div className="container mx-auto px-6">
-          <SectionTitle title="Simple Steps to Get Started" subtitle="How It Works" />
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-5xl mx-auto">
-            <StepCard 
-              number="1" 
+        {/* How It Works Section */}
+        <section className="py-16 md:py-24 bg-white">
+          <div className="container mx-auto px-6">
+            <SectionTitle title="Simple Steps to Get Started" subtitle="How It Works" />
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-5xl mx-auto">
+              <StepCard 
+                number="1" 
               icon={<FiUserCheck />}
               title={session ? "You're Logged In" : "Register or Login"} 
               description={session ? "Proceed to take an assessment." : "Quick and easy registration/login to access all our tools and save your progress."}
-            />
-            <StepCard 
-              number="2" 
-              icon={<FiCheckCircle />} 
-              title="Take an Assessment" 
-              description="Choose between Glaucoma or Cancer risk assessments and answer a series of guided questions."
-            />
-            <StepCard 
-              number="3" 
+              />
+              <StepCard 
+                number="2" 
+                icon={<FiCheckCircle />} 
+                title="Take an Assessment" 
+                description="Choose between Glaucoma or Cancer risk assessments and answer a series of guided questions."
+              />
+              <StepCard 
+                number="3" 
               icon={<FiFileText />} 
               title="Receive Indications" 
               description="Get immediate risk level feedback based on your answers to guide your health decisions."
-            />
-            <StepCard 
-              number="4" 
-              icon={<FiSend />}
+              />
+              <StepCard 
+                number="4" 
+                icon={<FiSend />} 
               title="Consult & Follow Up" 
               description="Discuss your results with a healthcare professional for further advice and management."
-            />
+              />
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Focus Area Card Section */}
-      <section className="py-16 md:py-24 bg-gray-100">
-        <div className="container mx-auto px-6">
-          <SectionTitle title="Our Focus Areas" subtitle="Dedicated to Diabetic Health" />
-          <div className="grid md:grid-cols-2 gap-10">
-            <FocusAreaCard 
-              title="Glaucoma in Diabetics" 
-              description="Diabetics have a higher risk of developing glaucoma. Learn about early detection and management strategies."
-              icon={<FiEye />}
-              linkHref="/glaucoma-info" 
-              linkText="Learn About Glaucoma"
-              bgColorClass="bg-gradient-to-br from-blue-500 to-blue-700"
-              textColorClass="text-white"
-              iconBgClass="bg-blue-400"
-              iconColorClass="text-blue-800"
-            />
-            <FocusAreaCard 
-              title="Cancer Risks for Diabetics" 
-              description="Understand the links between diabetes and certain cancers. Proactive screening can make a difference."
-              icon={<FiActivity />}
-              linkHref="/cancer-info" 
-              linkText="Learn About Cancer Risks"
-              bgColorClass="bg-gradient-to-br from-pink-500 to-pink-700"
-              textColorClass="text-white"
-              iconBgClass="bg-pink-400"
-              iconColorClass="text-pink-800"
-            />
-          </div>
-        </div>
-      </section>
+
 
       {/* --- Find Hospital & Counselor Cards Section --- */}
-      <section className="py-16 md:py-24 bg-white">
-        <div className="container mx-auto px-6">
-            <SectionTitle title="Find Help Nearby" subtitle="Hospitals & Counselors" />
-            <div className="grid md:grid-cols-2 gap-10">
-              {/* Find Hospitals Card */}
-              <div className="bg-white rounded-xl shadow-xl overflow-hidden hover:shadow-2xl transition-shadow duration-300">
-                <div className="h-48 bg-gradient-to-r from-blue-500 to-blue-600 relative">
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <svg className="w-24 h-24 text-white opacity-20" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                      <path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm5 5a1 1 0 10-2 0v2H5a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2H9V9z" clipRule="evenodd"></path>
-                    </svg>
-                  </div>
-                  <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-blue-900 to-transparent text-white">
-                    <h3 className="text-2xl font-bold">Find Hospitals</h3>
-                    <p className="mt-1 text-blue-100">Locate healthcare facilities specialized in diabetes, glaucoma, and cancer care</p>
-                  </div>
-                </div>
-                <div className="p-6">
-                  <p className="text-gray-600 mb-4">
-                    Find healthcare providers specialized in diabetes and related conditions. Our comprehensive database includes hospitals with expertise in managing and treating diabetic complications, glaucoma, and cancer.
-                  </p>
-                  <div className="mt-4 flex justify-between items-center">
-                    <span className="text-sm text-gray-500">250+ hospitals listed</span>
-                    <Link href="/hospitals" legacyBehavior>
-                      <a className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                        Find Hospitals
-                        <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
-                        </svg>
-                      </a>
-                    </Link>
-                  </div>
-                </div>
-              </div>
+        <section className="py-16 md:py-24 bg-white">
+          <div className="container mx-auto px-6">
+             <SectionTitle title="Find Help Nearby" subtitle="Hospitals & Counselors" />
+             <div className="grid md:grid-cols-2 gap-10">
+               {/* Find Hospitals Card */}
+               <div className="bg-white rounded-xl shadow-xl overflow-hidden hover:shadow-2xl transition-shadow duration-300">
+                 <div className="h-48 bg-gradient-to-r from-blue-500 to-blue-600 relative">
+                   <div className="absolute inset-0 flex items-center justify-center">
+                     <svg className="w-24 h-24 text-white opacity-20" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                       <path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm5 5a1 1 0 10-2 0v2H5a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2H9V9z" clipRule="evenodd"></path>
+                     </svg>
+                   </div>
+                   <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-blue-900 to-transparent text-white">
+                     <h3 className="text-2xl font-bold">Find Hospitals</h3>
+                     <p className="mt-1 text-blue-100">Locate healthcare facilities specialized in diabetes, glaucoma, and cancer care</p>
+                   </div>
+                 </div>
+                 <div className="p-6">
+                   <p className="text-gray-600 mb-4">
+                     Find healthcare providers specialized in diabetes and related conditions. Our comprehensive database includes hospitals with expertise in managing and treating diabetic complications, glaucoma, and cancer.
+                   </p>
+                   <div className="mt-4 flex justify-between items-center">
+                     <span className="text-sm text-gray-500">250+ hospitals listed</span>
+                     <Link href="/hospitals" legacyBehavior>
+                       <a className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                         Find Hospitals
+                         <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+                         </svg>
+                       </a>
+                     </Link>
+                   </div>
+                 </div>
+               </div>
 
-              {/* Find Counselors Card */}
-              <div className="bg-white rounded-xl shadow-xl overflow-hidden hover:shadow-2xl transition-shadow duration-300">
-                <div className="h-48 bg-gradient-to-r from-purple-500 to-purple-600 relative">
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <svg className="w-24 h-24 text-white opacity-20" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"></path>
-                    </svg>
-                  </div>
-                  <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-purple-900 to-transparent text-white">
-                    <h3 className="text-2xl font-bold">Find Counselors</h3>
-                    <p className="mt-1 text-purple-100">Connect with mental health professionals specializing in chronic health conditions</p>
-                  </div>
-                </div>
-                <div className="p-6">
-                  <p className="text-gray-600 mb-4">
-                    Living with diabetes and related health concerns can be challenging. Our network of counselors provides mental health support specifically for individuals managing chronic health conditions.
-                  </p>
-                  <div className="mt-4 flex justify-between items-center">
-                    <span className="text-sm text-gray-500">100+ counselors available</span>
-                    <Link href="/counselors" legacyBehavior>
-                      <a className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
-                        Find Counselors
-                        <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
-                        </svg>
-                      </a>
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </div>
-        </div>
-      </section>
+               {/* Find Counselors Card */}
+               <div className="bg-white rounded-xl shadow-xl overflow-hidden hover:shadow-2xl transition-shadow duration-300">
+                 <div className="h-48 bg-gradient-to-r from-purple-500 to-purple-600 relative">
+                   <div className="absolute inset-0 flex items-center justify-center">
+                     <svg className="w-24 h-24 text-white opacity-20" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                       <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"></path>
+                     </svg>
+                   </div>
+                   <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-purple-900 to-transparent text-white">
+                     <h3 className="text-2xl font-bold">Find Counselors</h3>
+                     <p className="mt-1 text-purple-100">Connect with mental health professionals specializing in chronic health conditions</p>
+                   </div>
+                 </div>
+                 <div className="p-6">
+                   <p className="text-gray-600 mb-4">
+                     Living with diabetes and related health concerns can be challenging. Our network of counselors provides mental health support specifically for individuals managing chronic health conditions.
+                   </p>
+                   <div className="mt-4 flex justify-between items-center">
+                     <span className="text-sm text-gray-500">100+ counselors available</span>
+                     <Link href="/counselors" legacyBehavior>
+                       <a className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+                         Find Counselors
+                         <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+                         </svg>
+                       </a>
+                     </Link>
+                   </div>
+                 </div>
+               </div>
+             </div>
+          </div>
+        </section>
     </>
-  );
+    );
 
   // Render page content
   return (
@@ -375,6 +346,39 @@ const HomePage: NextPage = () => {
 
       {/* Render common public sections */}
       {renderPublicSections()}
+      
+      {/* Focus Areas Section - Only for non-authenticated users */}
+      {!session && (
+        <section className="py-16 md:py-24 bg-gray-100">
+          <div className="container mx-auto px-6">
+            <SectionTitle title="Our Focus Areas" subtitle="Dedicated to Diabetic Health" />
+            <div className="grid md:grid-cols-2 gap-10">
+              <FocusAreaCard 
+                title="Glaucoma in Diabetics" 
+                description="Diabetics have a higher risk of developing glaucoma. Learn about early detection and management strategies."
+                icon={<FiEye />}
+                linkHref="/glaucoma-info" 
+                linkText="Learn About Glaucoma"
+                bgColorClass="bg-gradient-to-br from-blue-500 to-blue-700"
+                textColorClass="text-white"
+                iconBgClass="bg-blue-400"
+                iconColorClass="text-blue-800"
+              />
+              <FocusAreaCard 
+                title="Cancer Risks for Diabetics" 
+                description="Understand the links between diabetes and certain cancers. Proactive screening can make a difference."
+                icon={<FiActivity />}
+                linkHref="/cancer-info" 
+                linkText="Learn About Cancer Risks"
+                bgColorClass="bg-gradient-to-br from-pink-500 to-pink-700"
+                textColorClass="text-white"
+                iconBgClass="bg-pink-400"
+                iconColorClass="text-pink-800"
+              />
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Global Statistics Section - Only for authenticated users for now */}
       {session && globalStats && !statsLoading && !statsError && (
@@ -481,7 +485,7 @@ const HomePage: NextPage = () => {
           </Link>
         </div>
       </section>
-    </div>
+        </div>
   );
 };
 

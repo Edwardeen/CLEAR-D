@@ -11,6 +11,7 @@ import AssessmentTrendsChart from '../../components/charts/AssessmentTrendsChart
 import MonthlyAssessmentTrendsChart from '../../components/charts/MonthlyAssessmentTrendsChart';
 import IllnessDistributionChart from '../../components/charts/IllnessDistributionChart';
 import UserTrendChart from '../../components/charts/UserTrendChart';
+import { useServerStatus } from '../../contexts/ServerStatusContext';
 
 // Helper debounce function
 const debounce = <F extends (...args: any[]) => void>(func: F, waitFor: number) => {
@@ -96,6 +97,7 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
 }) => {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const { isServerOnline } = useServerStatus();
   
   // State for assessments and pagination
   const [assessments, setAssessments] = useState<PopulatedAssessment[]>(initialAssessments);
@@ -227,6 +229,12 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
 
   // Fetch all user assessments for the 'All User Assessments' tab
   const fetchAllUserAssessments = useCallback(async (page: number) => {
+    if (!isServerOnline) {
+      console.warn("Simulated server offline. Fetch all user assessments aborted.");
+      setAllUserAssessmentsError("Server connection is offline. Cannot load assessments.");
+      setLoadingAllUserAssessments(false);
+      return;
+    }
     setLoadingAllUserAssessments(true);
     setAllUserAssessmentsError(null);
     try {
@@ -246,7 +254,7 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
     } finally {
       setLoadingAllUserAssessments(false);
     }
-  }, []); // No dependencies needed if it doesn't rely on other state/props that change
+  }, [isServerOnline, setAllUserAssessmentsError, setLoadingAllUserAssessments, setAllUserAssessments, setAllUserAssessmentsCurrentPage, setAllUserAssessmentsTotalPages]);
 
   // Effect to fetch data for 'All User Assessments' tab when it becomes active or its page changes
   useEffect(() => {
@@ -264,54 +272,72 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
     currentSortField: SortField | null,
     currentSortOrder: SortOrder | null
   ) => {
+    if (!isServerOnline) {
+      console.warn("Simulated server offline. Fetch filtered assessments aborted.");
+      setError("Server connection is offline. Cannot load assessments with filters.");
+      setLoading(false);
+      return;
+    }
         setLoading(true);
         setError(null);
-        const params = new URLSearchParams({
-            page: page.toString(),
-            limit: '15',
-        });
-        if (currentFilters.userEmail) params.set('userEmail', currentFilters.userEmail);
-        if (currentFilters.startDate) params.set('startDate', currentFilters.startDate);
-        if (currentFilters.endDate) params.set('endDate', currentFilters.endDate);
-        if (currentMinScoreFilter && currentMinScoreFilter !== '0') params.set('minScore', currentMinScoreFilter);
-        if (currentIllnessTypeFilter) params.set('type', currentIllnessTypeFilter);
-
-        // Add sort parameters
+    // Construct the query string
+    let queryString = `/api/assessments?page=${page}&limit=10`;
+    Object.entries(currentFilters).forEach(([key, value]) => {
+      if (value) {
+        queryString += `&${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+      }
+    });
+    if (currentMinScoreFilter) {
+      queryString += `&minScore=${currentMinScoreFilter}`;
+    }
+    if (currentIllnessTypeFilter) {
+      queryString += `&illnessType=${currentIllnessTypeFilter}`;
+    }
         if (currentSortField && currentSortOrder) {
-            params.set('sortField', currentSortField);
-            params.set('sortOrder', currentSortOrder);
+      queryString += `&sortField=${currentSortField}&sortOrder=${currentSortOrder}`;
         }
 
+    console.log("Fetching assessments with query:", queryString);
+
         try {
-            const response = await fetch(`/api/assessments?${params.toString()}`);
+      const response = await fetch(queryString);
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Failed to fetch assessments');
+        const errorData = await response.json().catch(() => ({})); // Catch if JSON parsing fails
+        console.error("Failed to fetch assessments:", response.status, errorData);
+        throw new Error(errorData.message || `Failed to fetch assessments: ${response.status}`);
             }
             const data = await response.json();
+      if (data.assessments) {
             setAssessments(data.assessments);
             setTotalAssessments(data.totalAssessments);
             setTotalPages(data.totalPages);
-            setCurrentPage(data.currentPage);
-             // Update URL query params without page reload
-             router.push(`/doctor/dashboard?${params.toString()}`, undefined, { shallow: true });
-             
-             // If a specific user is being filtered, fetch their trend data
-             if (currentFilters.userEmail && currentFilters.userEmail.trim() !== '') {
-                 fetchUserTrends(currentFilters.userEmail);
+        setCurrentPage(page);
+
+        // Update user trends based on the fetched assessments
+        if (data.assessments.length > 0 && selectedUserEmail) {
+            const userInResults = data.assessments.find((assessment: PopulatedAssessment) => assessment.userId?.email === selectedUserEmail);
+            if (userInResults) {
+                // fetchUserTrends(selectedUserEmail); // This might be called if needed, ensuring fetchUserTrends is stable.
              } else {
-                 // Clear user trend data if no specific user is filtered
-                 setSelectedUserEmail('');
-                 setSelectedUserName('');
                  setSelectedUserTrends({ glaucoma: [], cancer: [] });
+            }
+        }
+      } else {
+        setAssessments([]);
+        setTotalAssessments(0);
+        setTotalPages(1); // Reset to 1 page if no assessments
+        setCurrentPage(1);
              }
         } catch (error: any) {
-            console.error('Error fetching assessments:', error);
-            setError(error.message || 'An error occurred while fetching assessments.');
+      console.error("Error fetching assessments:", error);
+      setError(error.message || "An unknown error occurred");
         } finally {
             setLoading(false);
         }
-    }, [router]);
+  // Removed fetchUserTrends from here as it was causing issues. 
+  // It should be called conditionally inside or its update triggered by other effects.
+  // Ensured all state setters are present if this callback modifies that state.
+  }, [isServerOnline, router, setError, setLoading, setAssessments, setTotalAssessments, setTotalPages, setCurrentPage, selectedUserEmail, setSelectedUserTrends]); 
 
     // Function to fetch trend data for a specific user
     const fetchUserTrends = async (userEmail: string) => {
@@ -787,10 +813,10 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
 
   // JSX for rendering tabs
   const renderTabs = () => (
-    <div className="mb-6 border-b border-gray-200">
-      <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+      <div className="mb-6 border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8" aria-label="Tabs">
         {(['overview', 'assessments', 'allUserAssessments', 'illnesses'] as const).map((tabKey) => ( // Renamed 'tab' to 'tabKey' to avoid conflict
-          <button
+            <button
             key={tabKey}
             onClick={() => setActiveTab(tabKey)}
             className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
@@ -803,10 +829,10 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
             {tabKey === 'assessments' && 'My Patient Assessments'}
             {tabKey === 'allUserAssessments' && 'All User Assessments'}
             {tabKey === 'illnesses' && 'Manage Illnesses'}
-          </button>
-        ))}
-      </nav>
-    </div>
+            </button>
+          ))}
+        </nav>
+      </div>
   );
 
   // Main content rendering based on activeTab
@@ -815,7 +841,7 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
       case 'overview':
         // ... existing overview content ...
         return (
-          <div>
+                <div>
             {/* Filters Section - Common for overview and assessments for now */}
             {/* ... existing filter JSX ... */}
             
@@ -830,9 +856,9 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
       case 'assessments':
         // ... existing assessments tab content ...
         return (
-            <div>
+                <div>
                 {/* ... existing assessments tab JSX ... */}
-            </div>
+                </div>
         );
       case 'allUserAssessments':
         return (
@@ -842,19 +868,19 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
               <div className="flex justify-center items-center py-10">
                 <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
                 <p className="ml-4 text-gray-600">Loading all assessments...</p>
-              </div>
+                </div>
             )}
             {allUserAssessmentsError && (
               <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
                 <strong className="font-bold">Error: </strong>
                 <span className="block sm:inline">{allUserAssessmentsError}</span>
-                <button 
+            <button 
                   onClick={() => fetchAllUserAssessments(allUserAssessmentsCurrentPage)}
                   className="ml-4 px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
-                >
+              >
                   Retry
-                </button>
-              </div>
+            </button>
+        </div>
             )}
             {!loadingAllUserAssessments && !allUserAssessmentsError && allUserAssessments.length === 0 && (
               <p className="text-gray-600 text-center py-10">No assessments found in the system.</p>
@@ -862,7 +888,7 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
             {!loadingAllUserAssessments && !allUserAssessmentsError && allUserAssessments.length > 0 && (
               <>
                 <div className="overflow-x-auto bg-white shadow rounded-lg mb-6">
-                  <table className="min-w-full divide-y divide-gray-200">
+            <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User Name</th>
@@ -872,14 +898,14 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Risk Level</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
                       {allUserAssessments.map((assessment) => (
                         <tr key={assessment._id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {assessment.userId ? (typeof assessment.userId.name === 'string' ? assessment.userId.name : `${assessment.userId.name?.first || ''} ${assessment.userId.name?.last || ''}`.trim()) : 'N/A'}
-                          </td>
+                     </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{assessment.userId?.email || 'N/A'}</td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -888,7 +914,7 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
                             }`}>
                               {assessment.type ? assessment.type.charAt(0).toUpperCase() + assessment.type.slice(1) : 'N/A'}
                             </span>
-                          </td>
+                     </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDateTime(assessment.createdAt || assessment.timestamp)}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{(assessment.totalScore ?? assessment.glaucomaScore ?? assessment.cancerScore ?? 0).toFixed(2)}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -900,49 +926,49 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
                             }`}>
                                 {assessment.riskLevel || 'N/A'}
                             </span>
-                          </td>
+                     </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <Link href={`/results/${assessment._id}`} legacyBehavior>
                               <a className="text-indigo-600 hover:text-indigo-900">View Details</a>
-                            </Link>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                        </Link>
+                     </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
                 {/* Pagination for All User Assessments */}
                 {allUserAssessmentsTotalPages > 1 && (
                   <div className="flex justify-center items-center mt-6 mb-8">
-                    <button
+                        <button
                       onClick={() => fetchAllUserAssessments(Math.max(1, allUserAssessmentsCurrentPage - 1))}
                       disabled={allUserAssessmentsCurrentPage === 1 || loadingAllUserAssessments}
                       className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-l-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      Previous
-                    </button>
+                        >
+                            Previous
+                        </button>
                     <span className="px-4 py-2 text-sm text-gray-700">
                       Page {allUserAssessmentsCurrentPage} of {allUserAssessmentsTotalPages}
                     </span>
-                    <button
+                        <button
                       onClick={() => fetchAllUserAssessments(Math.min(allUserAssessmentsTotalPages, allUserAssessmentsCurrentPage + 1))}
                       disabled={allUserAssessmentsCurrentPage === allUserAssessmentsTotalPages || loadingAllUserAssessments}
                       className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-r-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      Next
-                    </button>
-                  </div>
-                )}
-              </>
+                        >
+                            Next
+                        </button>
+                </div>
             )}
+        </>
+      )}
           </div>
         );
       case 'illnesses':
         // ... existing illnesses tab content ...
         return (
-            <div>
+                  <div>
                 {/* ... existing illnesses tab JSX ... */}
-            </div>
+                  </div>
         );
       default:
         return null;

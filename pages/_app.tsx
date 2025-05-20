@@ -4,6 +4,7 @@ import { SessionProvider } from 'next-auth/react';
 import Layout from '../components/Layout';
 import React from 'react';
 import { useRouter } from 'next/router';
+import { ServerStatusProvider } from '../contexts/ServerStatusContext';
 
 function MyApp({ Component, pageProps: { session, ...pageProps } }: AppProps) {
   const router = useRouter();
@@ -19,13 +20,15 @@ function MyApp({ Component, pageProps: { session, ...pageProps } }: AppProps) {
       // Minimize session updates
       refetchWhenOffline={false}
     >
-      {isAuthPage ? (
-        <Component {...pageProps} />
-      ) : (
-        <Layout>
+      <ServerStatusProvider>
+        {isAuthPage ? (
           <Component {...pageProps} />
-        </Layout>
-      )}
+        ) : (
+          <Layout>
+            <Component {...pageProps} />
+          </Layout>
+        )}
+      </ServerStatusProvider>
     </SessionProvider>
   );
 }
