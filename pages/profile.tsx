@@ -295,7 +295,7 @@ const ProfilePage = () => {
     } finally {
       setLoading(false);
     }
-  }, [isServerOnline, updateLatestScores, fetchLatestCard, setError, setLoading, hasTriedFetchingAssessments, currentPage]);
+  }, [isServerOnline, updateLatestScores, setError, setLoading, hasTriedFetchingAssessments, currentPage]);
 
   // Generate assessment history data
   const generateAssessmentHistoryData = useCallback(() => {
@@ -458,7 +458,7 @@ const ProfilePage = () => {
       hasTriedFetchingCard.current = false;
     }
     // Don't do anything if status is 'loading' to prevent infinite loops
-  }, [status, currentPage, fetchAssessmentHistory]);
+  }, [status, currentPage, fetchAssessmentHistory, loading]);
   
   // Effect for updating card when scores change
   useEffect(() => {
@@ -504,20 +504,29 @@ const ProfilePage = () => {
       cardElement.style.maxWidth = 'none';
       cardElement.style.width = '450px'; // Set fixed width for consistency
       
-      const fullName = userData.name || 'User';
-      const cardNo = cardToDisplay?.cardNo || 'card';
-      downloadComponentAsPdf(cardElement, `${fullName}_${cardNo}.pdf`);
-      
-      // Restore original style after a short delay
-      setTimeout(() => {
-        if (originalStyle) {
-          cardElement.setAttribute('style', originalStyle);
-        } else {
-          cardElement.removeAttribute('style');
+      let nameString = 'user';
+      if (userData?.name) {
+        if (typeof userData.name === 'string') {
+          nameString = userData.name;
+        } else if (typeof userData.name === 'object' && userData.name.first) {
+          // Construct name, ensuring parts are defined
+          const firstName = userData.name.first || '';
+          const lastName = userData.name.last || '';
+          nameString = `${firstName}${lastName ? `_${lastName}` : ''}`.trim();
+          if (!nameString) nameString = 'user'; // Fallback if parts were empty
         }
-      }, 500);
-    } else {
-      setError('Could not find card element to download');
+      }
+      
+      const cardNo = cardToDisplay?.cardNo || 'card';
+      // Sanitize the nameString to remove/replace characters invalid for filenames
+      const sanitizedNameString = nameString.replace(/[^a-zA-Z0-9_.-]/g, '_');
+  
+      downloadComponentAsPdf(cardElement, `${sanitizedNameString}_${cardNo}_CLEAR-D_CARD.pdf`);
+  
+      // Restore original style after a short delay to allow download to initiate
+      setTimeout(() => {
+        cardElement.setAttribute('style', originalStyle);
+      }, 100);
     }
   };
 

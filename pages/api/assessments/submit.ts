@@ -11,23 +11,26 @@ import { getGlaucomaRecommendations, getCancerRecommendations } from '../../../u
 const getRiskLevelName = (score: number, type: string): string => {
   // Normalize type to lowercase for consistent matching
   const lowerType = type.toLowerCase();
+
   if (lowerType === 'glaucoma') {
-    if (score >= 8) return 'Critical / Acute risk';
-    if (score >= 5) return 'High risk';
-    if (score >= 2.1) return 'Moderate risk'; // Based on previous util: score > 2 && score < 5
-    return 'Low risk';
+    if (score >= 8) return 'Critical / Acute risk'; // 8-10
+    if (score >= 5) return 'High risk'; // 5.0-7.9
+    if (score >= 2.1) return 'Moderate risk'; // 2.1-4.9
+    return 'Low risk'; // 0-2
   } else if (lowerType === 'cancer') {
-    if (score >= 9) return 'Very high risk';
-    if (score >= 7) return 'High risk';
-    if (score >= 5) return 'Localized disease likely';
-    if (score >= 3) return 'Moderate risk';
-    return 'Low risk';
+    if (score >= 9) return 'Very high risk'; // 9-10
+    if (score >= 7) return 'High risk'; // 7-8
+    if (score >= 5) return 'Localized disease likely'; // 5-6
+    if (score >= 3) return 'Moderate risk'; // 3-4
+    return 'Low risk'; // 0-2
   } else {
-    // Generic fallback for other types like 'ligma'
-    if (score >= 8) return 'Very High Risk';
-    if (score >= 5) return 'High Risk';
-    if (score >= 2) return 'Moderate Risk';
-    return 'Low Risk';
+    // Quartile-based for other illnesses (assuming a 0-10 score range)
+    // Ensure score is within 0-10 for this generic logic
+    const normalizedScore = Math.max(0, Math.min(score, 10));
+    if (normalizedScore > 7.5) return 'Very high risk'; // Quartile 4: 7.51 - 10
+    if (normalizedScore > 5) return 'High risk';      // Quartile 3: 5.01 - 7.5
+    if (normalizedScore > 2.5) return 'Moderate risk';  // Quartile 2: 2.51 - 5.0
+    return 'Low risk';                               // Quartile 1: 0 - 2.5
   }
 };
 
@@ -39,11 +42,13 @@ const getRecommendations = (score: number, type: string): string[] => {
   } else if (lowerType === 'cancer') {
     return [getCancerRecommendations(score)];
   } else {
-    // Generic recommendations for other types
-    if (score >= 8) return ['Urgent medical consultation is advised.'];
-    if (score >= 5) return ['Consult a specialist for further evaluation and management.'];
-    if (score >= 2) return ['Monitor symptoms and consider a follow-up with a healthcare provider.'];
-    return ['Maintain a healthy lifestyle and regular check-ups.'];
+    // Generic recommendations for other types, aligned with quartile risk levels
+    const normalizedScore = Math.max(0, Math.min(score, 10)); // Ensure score is 0-10
+
+    if (normalizedScore > 7.5) return ["Urgent medical consultation is advised. This indicates a Very high risk."];
+    if (normalizedScore > 5.0) return ["Consult a specialist for further evaluation. This indicates a High risk."];
+    if (normalizedScore > 2.5) return ["Monitor symptoms and consider a follow-up with a healthcare provider. This indicates a Moderate risk."];
+    return ["Maintain a healthy lifestyle and regular check-ups. This indicates a Low risk."];
   }
 };
 

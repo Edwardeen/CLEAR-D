@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
-import { Line } from 'react-chartjs-2';
+import { Line, Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -9,6 +9,7 @@ import {
   PointElement,
   LineElement,
   BarElement,
+  BarController,
   Title,
   Tooltip,
   Legend,
@@ -23,6 +24,7 @@ ChartJS.register(
   PointElement,
   LineElement,
   BarElement,
+  BarController,
   Title,
   Tooltip,
   Legend,

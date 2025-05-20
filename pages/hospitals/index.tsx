@@ -24,60 +24,39 @@ const HospitalsPage = ({ initialData }: HospitalsPageProps) => {
   const router = useRouter();
   const [hospitals, setHospitals] = useState<IHospital[]>(initialData.hospitals);
   const [pagination, setPagination] = useState(initialData.pagination);
-  const [filters, setFilters] = useState(initialData.filters);
+  const [availableFilters, setAvailableFilters] = useState(initialData.filters);
   const [loading, setLoading] = useState(false);
 
-  // Local state for filters, driven by user input or URL sync
-  const [selectedState, setSelectedState] = useState<string>(() => (router.query.state as string) || '');
-  const [selectedType, setSelectedType] = useState<string>(() => (router.query.type as string) || '');
-  const [searchTerm, setSearchTerm] = useState<string>(() => (router.query.search as string) || '');
-  const [urlDrivenPage, setUrlDrivenPage] = useState<number>(() => router.query.page ? parseInt(router.query.page as string, 10) : 1);
+  // Local state for filter inputs - these will drive URL changes
+  const [currentSearchTerm, setCurrentSearchTerm] = useState<string>('');
+  const [currentStateFilter, setCurrentStateFilter] = useState<string>('');
+  const [currentTypeFilter, setCurrentTypeFilter] = useState<string>('');
 
-  // Effect 1: Sync router.query to local state (selectedState, selectedType, searchTerm, urlDrivenPage)
-  // This effect runs when the URL changes (e.g., browser back/forward, or after router.push in fetchHospitals)
-  // It ensures local state reflects the URL.
+  // Effect to initialize filter inputs from URL on first load or when URL directly changes (e.g. back/forward)
   useEffect(() => {
     if (router.isReady) {
-      const {
-        state: queryState,
-        type: queryType,
-        search: querySearch,
-        page: queryPage
-      } = router.query;
-
-      const newPage = queryPage ? parseInt(queryPage as string, 10) : 1;
-      const newSelectedState = (queryState as string) || '';
-      const newSelectedType = (queryType as string) || '';
-      const newSearchTerm = (querySearch as string) || '';
-
-      // Only update local state if it's different from the URL's query parameters
-      // This prevents re-triggering Effect 2 unnecessarily if router.push in fetchHospitals
-      // sets the URL to what it effectively already is based on current local state.
-      if (newSelectedState !== selectedState) {
-        setSelectedState(newSelectedState);
-      }
-      if (newSelectedType !== selectedType) {
-        setSelectedType(newSelectedType);
-      }
-      if (newSearchTerm !== searchTerm) {
-        setSearchTerm(newSearchTerm);
-      }
-      if (newPage !== urlDrivenPage) {
-        setUrlDrivenPage(newPage);
-      }
+      setCurrentSearchTerm((router.query.search as string) || '');
+      setCurrentStateFilter((router.query.state as string) || '');
+      setCurrentTypeFilter((router.query.type as string) || '');
     }
-  }, [router.isReady, router.query, selectedState, selectedType, searchTerm, urlDrivenPage]); // Added local states to dependencies to ensure accurate comparison
+  }, [router.isReady, router.query.search, router.query.state, router.query.type]);
+  
+  const fetchHospitals = useCallback(async () => {
+    if (!router.isReady) return; // Don't fetch if router isn't ready
 
-  const fetchHospitals = useCallback(async (pageToFetch = 1) => {
     setLoading(true);
+    
+    const pageToFetch = parseInt(router.query.page as string, 10) || 1;
+    const stateFromQuery = (router.query.state as string) || '';
+    const typeFromQuery = (router.query.type as string) || '';
+    const searchFromQuery = (router.query.search as string) || '';
 
     const queryParams = new URLSearchParams();
     queryParams.append('page', pageToFetch.toString());
 
-    // Use local state for query params
-    if (selectedState) queryParams.append('state', selectedState);
-    if (selectedType) queryParams.append('type', selectedType);
-    if (searchTerm) queryParams.append('search', searchTerm);
+    if (stateFromQuery) queryParams.append('state', stateFromQuery);
+    if (typeFromQuery) queryParams.append('type', typeFromQuery);
+    if (searchFromQuery) queryParams.append('search', searchFromQuery);
 
     try {
       const response = await fetch(`/api/hospitals?${queryParams.toString()}`);
@@ -86,95 +65,67 @@ const HospitalsPage = ({ initialData }: HospitalsPageProps) => {
       const data = await response.json();
       setHospitals(data.hospitals);
       setPagination(data.pagination);
-      if (data.filters) setFilters(data.filters);
-
-      // Construct the query for router.push based on current filter states and pageToFetch
-      const newRouterQuery: Record<string, string> = {};
-      if (selectedState) newRouterQuery.state = selectedState;
-      if (selectedType) newRouterQuery.type = selectedType;
-      if (searchTerm) newRouterQuery.search = searchTerm;
-      if (pageToFetch > 1) newRouterQuery.page = pageToFetch.toString();
-      else if (router.query.page) delete newRouterQuery.page; // Remove page if it's 1 to keep URL clean
-
-      // Only push if the new query is different from the current router.query
-      const currentQueryObject = { ...router.query };
-      delete currentQueryObject.page; // Normalize by removing page if it would be 1
-      if (pageToFetch > 1) currentQueryObject.page = pageToFetch.toString();
-
-
-      // Normalize router.query before comparison (remove undefined/empty string keys that might not be in newRouterQuery)
-      const normalizedCurrentQuery: Record<string, string> = {};
-      if (router.query.state) normalizedCurrentQuery.state = router.query.state as string;
-      if (router.query.type) normalizedCurrentQuery.type = router.query.type as string;
-      if (router.query.search) normalizedCurrentQuery.search = router.query.search as string;
-      if (router.query.page && parseInt(router.query.page as string, 10) > 1) {
-        normalizedCurrentQuery.page = router.query.page as string;
-      }
-
-
-      const currentQueryString = new URLSearchParams(normalizedCurrentQuery).toString();
-      const newQueryString = new URLSearchParams(newRouterQuery).toString();
-
-
-      if (currentQueryString !== newQueryString) {
-        router.push({
-          pathname: router.pathname,
-          query: newRouterQuery,
-        }, undefined, { shallow: true });
-      }
+      if (data.filters) setAvailableFilters(data.filters); // Update available filters if API provides them
 
     } catch (error) {
       console.error('Error fetching hospitals:', error);
+      // Consider setting an error state here to display to the user
     } finally {
       setLoading(false);
     }
-  }, [router, selectedState, selectedType, searchTerm]); // Added dependencies to useCallback
+  }, [router.isReady, router.query]); // Depends only on router.isReady and router.query
 
-  // Effect 2: Fetch data when local filters or urlDrivenPage change
-  // This effect is triggered by user actions (changing filters, pagination) or by Effect 1 if URL changes cause local state to update.
+  // Effect to fetch data when router.query changes (and router is ready)
   useEffect(() => {
-    // Fetch data only if router is ready and one of the dependencies has meaningfully changed.
-    // The initial state of local filters is set from router.query, so this effect will run on initial load.
-    if (router.isReady) {
-      fetchHospitals(urlDrivenPage);
-    }
-  }, [
-    router.isReady, // Ensures router is ready before fetching
-    urlDrivenPage,
-    fetchHospitals // Added fetchHospitals as a dependency
-  ]);
+    fetchHospitals();
+  }, [fetchHospitals]); // fetchHospitals itself now depends on router.query
 
-  // Handle filter changes - these update local state, triggering Effect 2
+  // Handlers update URL, which then triggers the main useEffect via router.query change
+  const handleFilterChange = (updates: Record<string, string | undefined>) => {
+    const newQuery: Record<string, string> = { ...router.query as Record<string, string>, page: '1' }; // Reset to page 1
+
+    for (const key in updates) {
+      if (updates[key]) {
+        newQuery[key] = updates[key] as string;
+      } else {
+        delete newQuery[key]; // Remove filter if value is empty/undefined
+      }
+    }
+    
+    router.push({ pathname: router.pathname, query: newQuery }, undefined, { shallow: true });
+  };
+  
   const handleStateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedState(e.target.value);
-    setUrlDrivenPage(1); // Reset to page 1 when a filter changes
+    const newState = e.target.value;
+    setCurrentStateFilter(newState);
+    handleFilterChange({ state: newState });
   };
 
   const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedType(e.target.value);
-    setUrlDrivenPage(1); // Reset to page 1
+    const newType = e.target.value;
+    setCurrentTypeFilter(newType);
+    handleFilterChange({ type: newType });
   };
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value);
-    // Debounce or wait for submit for search to avoid too many API calls
+    setCurrentSearchTerm(e.target.value);
+    // For live search, you might debounce handleFilterChange({ search: e.target.value })
   };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setUrlDrivenPage(1); // Triggers fetch via Effect 2
+    handleFilterChange({ search: currentSearchTerm });
   };
 
   const handleReset = () => {
-    setSelectedState('');
-    setSelectedType('');
-    setSearchTerm('');
-    setUrlDrivenPage(1);
-    // Effect 2 will pick this up and call fetchHospitals, which will update the URL.
+    setCurrentStateFilter('');
+    setCurrentTypeFilter('');
+    setCurrentSearchTerm('');
+    router.push({ pathname: router.pathname, query: { page: '1'} }, undefined, { shallow: true });
   };
 
   const handlePageChange = (newPage: number) => {
-    setUrlDrivenPage(newPage);
+    router.push({ pathname: router.pathname, query: { ...router.query, page: newPage.toString() } }, undefined, { shallow: true });
   };
 
   // View hospital details (example, if you have detail pages)
@@ -193,12 +144,12 @@ const HospitalsPage = ({ initialData }: HospitalsPageProps) => {
             <label htmlFor="state" className="block text-sm font-medium text-gray-700 mb-1">State</label>
             <select
               id="state"
-              value={selectedState} // Controlled by local state
+              value={currentStateFilter} // Controlled by new local state
               onChange={handleStateChange}
               className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             >
               <option value="">All States</option>
-              {filters.states.map((stateItem) => (
+              {availableFilters.states.map((stateItem) => (
                 <option key={stateItem} value={stateItem}>
                   {stateItem}
                 </option>
@@ -210,12 +161,12 @@ const HospitalsPage = ({ initialData }: HospitalsPageProps) => {
             <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">Type</label>
             <select
               id="type"
-              value={selectedType} // Controlled by local state
+              value={currentTypeFilter} // Controlled by new local state
               onChange={handleTypeChange}
               className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             >
               <option value="">All Types</option>
-              {filters.types.map((typeItem) => (
+              {availableFilters.types.map((typeItem) => (
                 <option key={typeItem} value={typeItem}>
                   {typeItem}
                 </option>
@@ -228,7 +179,7 @@ const HospitalsPage = ({ initialData }: HospitalsPageProps) => {
             <input
               type="text"
               id="search"
-              value={searchTerm} // Controlled by local state
+              value={currentSearchTerm} // Controlled by new local state
               onChange={handleSearchChange}
               placeholder="Hospital name, specialist..."
               className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"

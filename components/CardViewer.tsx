@@ -52,6 +52,73 @@ const getRiskLevel = (score: number | undefined, type: 'glaucoma' | 'cancer') =>
   }
 };
 
+// Define risk level ranks
+const riskLevelRanks: { [key: string]: number } = {
+  'Critical / Acute': 5, // Glaucoma
+  'Very High Risk': 5,   // Cancer
+  'High Risk': 4,
+  'Localized': 3,        // Cancer specific
+  'Moderate': 2,
+  'Low Risk': 1,
+  'Unknown': 0,
+};
+
+// Function to determine the dominant risk and its corresponding light background color
+const getDominantRiskCardBackgroundColor = (
+  glaucomaScore: number | undefined,
+  cancerScore: number | undefined
+): string => {
+  const glaucomaLevel = getRiskLevel(glaucomaScore, 'glaucoma');
+  const cancerLevel = getRiskLevel(cancerScore, 'cancer');
+
+  const glaucomaRank = riskLevelRanks[glaucomaLevel] || 0;
+  const cancerRank = riskLevelRanks[cancerLevel] || 0;
+
+  let dominantType: 'glaucoma' | 'cancer' | 'none' = 'none';
+  let dominantScore: number | undefined = undefined;
+
+  if (glaucomaRank > cancerRank) {
+    dominantType = 'glaucoma';
+    dominantScore = glaucomaScore;
+  } else if (cancerRank > glaucomaRank) {
+    dominantType = 'cancer';
+    dominantScore = cancerScore;
+  } else { // Ranks are equal
+    if (glaucomaScore !== undefined && cancerScore !== undefined) {
+      if (glaucomaScore > cancerScore) {
+        dominantType = 'glaucoma';
+        dominantScore = glaucomaScore;
+      } else { // cancerScore >= glaucomaScore
+        dominantType = 'cancer';
+        dominantScore = cancerScore;
+      }
+    } else if (glaucomaScore !== undefined) {
+      dominantType = 'glaucoma';
+      dominantScore = glaucomaScore;
+    } else if (cancerScore !== undefined) {
+      dominantType = 'cancer';
+      dominantScore = cancerScore;
+    }
+  }
+
+  if (dominantType === 'none' || dominantScore === undefined) {
+    return '#F9FAFB'; // Default light gray
+  }
+
+  // Get the hex color for the dominant risk text (which implies severity)
+  const dominantTextColor = getRiskColor(dominantScore, dominantType);
+
+  // Determine background based on dominant text/severity color
+  switch (dominantTextColor) {
+    case '#DC2626': return '#FEE2E2'; // Light Red (for Red text)
+    case '#EA580C': return '#FFF7ED'; // Light Orange (for Orange text)
+    case '#F97316': return '#FFF7ED'; // Light Orange (for Light Orange text)
+    case '#EAB308': return '#FEFCE8'; // Light Yellow (for Yellow text)
+    case '#16A34A': return '#F0FDF4'; // Light Green (for Green text)
+    default: return '#F9FAFB'; // Default light gray
+  }
+};
+
 // Get recommended action based on score and type
 const getRecommendedAction = (score: number | undefined, type: 'glaucoma' | 'cancer') => {
   if (score === undefined) return 'Consult healthcare provider';
@@ -108,6 +175,8 @@ const CardViewer: React.FC<CardViewerProps> = ({
   const glaucomaAction = getRecommendedAction(glaucomaScore, 'glaucoma');
   const cancerAction = getRecommendedAction(cancerScore, 'cancer');
   
+  const cardBackgroundColor = getDominantRiskCardBackgroundColor(glaucomaScore, cancerScore);
+
   // For downloadable version, ensure we use inline styles
   return (
     <div style={{
@@ -119,7 +188,7 @@ const CardViewer: React.FC<CardViewerProps> = ({
       {/* Card container */}
       <div style={{
         width: '100%',
-        backgroundColor: '#FFF5F5', // Very light red/pink background
+        backgroundColor: cardBackgroundColor, // Dynamic background color
         borderRadius: '12px',
         overflow: 'hidden',
         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',

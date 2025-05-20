@@ -166,7 +166,9 @@ export const authOptions: NextAuthOptions = {
             token.email = 'xxtremeindmc@gmail.com';
             console.log("JWT Callback: Set admin email based on known ID");
           } else {
-            console.error("JWT Callback: Unable to fix corrupted email!");
+            // Create a placeholder email using the user ID
+            token.email = `user-${token.id}@placeholder.com`;
+            console.log("JWT Callback: Created placeholder email for corrupted email:", token.email);
           }
         }
       }
@@ -190,7 +192,7 @@ export const authOptions: NextAuthOptions = {
       // `token` here has `id`, `role`, `photoUrl` from the jwt callback
       if (session.user) {
         // Explicitly copy all important fields from token to session
-        session.user.id = token.id as string;
+        session.user.id = token.id as string; 
         
         // Validate email again here
         if (token.email && typeof token.email === 'string' && token.email.includes('@')) {

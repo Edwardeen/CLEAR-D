@@ -10,7 +10,8 @@ import {
   Tooltip,
   Legend,
   Filler,
-  BarElement, // Added for bar charts
+  BarElement,
+  BarController,
 } from 'chart.js';
 
 // ChartJS registration is global, so if AssessmentTrendsChart is also used, it's already registered.
@@ -24,7 +25,8 @@ ChartJS.register(
   Tooltip,
   Legend,
   Filler,
-  BarElement // Added for bar charts
+  BarElement,
+  BarController
 );
 
 // Define more specific interfaces for clarity

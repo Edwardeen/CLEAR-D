@@ -1,5 +1,6 @@
 import type { NextPage, GetServerSideProps } from 'next';
 import Link from 'next/link';
+import Image from 'next/image';
 import { IAssessment } from '../../models/Assessment'; // Assuming path is correct
 import { getCancerScoreColor, getGlaucomaScoreColor } from '../../utils/scoreColors';
 import { getRiskLevelName } from '../../utils/riskUtils'; // Updated import path
@@ -159,11 +160,13 @@ const PublicProfilePage: NextPage<ProfilePageProps> = ({ profileData, error, use
         <section className="bg-white p-6 sm:p-8 rounded-xl shadow-2xl">
           <div className="flex flex-col sm:flex-row items-center sm:items-start">
             {user.photoUrl && (
-              <div className="flex-shrink-0 mb-6 sm:mb-0 sm:mr-8">
-                <img 
+              <div className="flex-shrink-0 mb-6 sm:mb-0 sm:mr-8 w-32 h-32 sm:w-40 sm:h-40 relative">
+                <Image 
                   src={user.photoUrl} 
                   alt={user.fullName || 'User photo'} 
-                  className="w-32 h-32 sm:w-40 sm:h-40 rounded-full object-cover shadow-lg border-4 border-white"
+                  layout="fill"
+                  objectFit="cover"
+                  className="rounded-full shadow-lg border-4 border-white"
                 />
               </div>
             )}

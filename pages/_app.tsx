@@ -21,13 +21,13 @@ function MyApp({ Component, pageProps: { session, ...pageProps } }: AppProps) {
       refetchWhenOffline={false}
     >
       <ServerStatusProvider>
-        {isAuthPage ? (
+      {isAuthPage ? (
+        <Component {...pageProps} />
+      ) : (
+        <Layout>
           <Component {...pageProps} />
-        ) : (
-          <Layout>
-            <Component {...pageProps} />
-          </Layout>
-        )}
+        </Layout>
+      )}
       </ServerStatusProvider>
     </SessionProvider>
   );

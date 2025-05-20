@@ -25,137 +25,138 @@ const CounselorsPage = ({ initialData }: CounselorsPageProps) => {
   const router = useRouter();
   const [counselors, setCounselors] = useState<ICounselor[]>(initialData.counselors);
   const [pagination, setPagination] = useState(initialData.pagination);
-  const [filters, setFilters] = useState(initialData.filters);
+  const [availableFilters, setAvailableFilters] = useState(initialData.filters);
   const [loading, setLoading] = useState(false);
 
-  // Local state for filters, driven by user input or URL sync
-  const [selectedState, setSelectedState] = useState<string>(() => (router.query.state as string) || '');
-  const [selectedType, setSelectedType] = useState<string>(() => (router.query.type as string) || '');
-  const [selectedSpecialization, setSelectedSpecialization] = useState<string>(() => (router.query.specialization as string) || '');
-  const [searchTerm, setSearchTerm] = useState<string>(() => (router.query.search as string) || '');
-  const [urlDrivenPage, setUrlDrivenPage] = useState<number>(() => router.query.page ? parseInt(router.query.page as string, 10) : 1);
+  // Local state for filter inputs - these will drive URL changes
+  const [currentSearchTerm, setCurrentSearchTerm] = useState<string>('');
+  const [currentStateFilter, setCurrentStateFilter] = useState<string>('');
+  const [currentTypeFilter, setCurrentTypeFilter] = useState<string>('');
+  const [currentSpecializationFilter, setCurrentSpecializationFilter] = useState<string>('');
 
-  // Effect 1: Sync state with URL query parameters
+  // Effect to initialize filter inputs from URL on first load or when URL directly changes
   useEffect(() => {
     if (router.isReady) {
-      const newSelectedState = (router.query.state as string) || '';
-      const newSelectedType = (router.query.type as string) || '';
-      const newSelectedSpecialization = (router.query.specialization as string) || '';
-      const newSearchTerm = (router.query.search as string) || '';
-      const newPage = parseInt(router.query.page as string, 10) || 1;
-
-      if (newSelectedState !== selectedState) setSelectedState(newSelectedState);
-      if (newSelectedType !== selectedType) setSelectedType(newSelectedType);
-      if (newSelectedSpecialization !== selectedSpecialization) setSelectedSpecialization(newSelectedSpecialization);
-      if (newSearchTerm !== searchTerm) setSearchTerm(newSearchTerm);
-      if (newPage !== urlDrivenPage) setUrlDrivenPage(newPage);
+      setCurrentSearchTerm((router.query.search as string) || '');
+      setCurrentStateFilter((router.query.state as string) || '');
+      setCurrentTypeFilter((router.query.type as string) || '');
+      setCurrentSpecializationFilter((router.query.specialization as string) || '');
     }
-  }, [router.isReady, router.query, selectedState, selectedType, selectedSpecialization, searchTerm, urlDrivenPage]);
+  }, [
+    router.isReady, 
+    router.query.search, 
+    router.query.state, 
+    router.query.type, 
+    router.query.specialization
+  ]);
+  
+  const fetchCounselors = useCallback(async () => {
+    if (!router.isReady) return;
 
-  const fetchCounselors = useCallback(async (pageToFetch = 1) => {
     setLoading(true);
+    
+    const pageToFetch = parseInt(router.query.page as string, 10) || 1;
+    const stateFromQuery = (router.query.state as string) || '';
+    const typeFromQuery = (router.query.type as string) || '';
+    const specializationFromQuery = (router.query.specialization as string) || '';
+    const searchFromQuery = (router.query.search as string) || '';
 
     const queryParams = new URLSearchParams();
     queryParams.append('page', pageToFetch.toString());
 
-    if (selectedState) queryParams.append('state', selectedState);
-    if (selectedType) queryParams.append('type', selectedType);
-    if (selectedSpecialization) queryParams.append('specialization', selectedSpecialization);
-    if (searchTerm) queryParams.append('search', searchTerm);
+    if (stateFromQuery) queryParams.append('state', stateFromQuery);
+    if (typeFromQuery) queryParams.append('type', typeFromQuery);
+    if (specializationFromQuery) queryParams.append('specialization', specializationFromQuery);
+    if (searchFromQuery) queryParams.append('search', searchFromQuery);
 
     try {
       const response = await fetch(`/api/counselors?${queryParams.toString()}`);
-      if (!response.ok) throw new Error('Failed to fetch counselors');
+      if (!response.ok) {
+        // Try to get error message from response if possible
+        let errorMsg = 'Failed to fetch counselors';
+        try {
+            const errorData = await response.json();
+            if (errorData && errorData.message) errorMsg = errorData.message;
+        } catch (e) { /* ignore parsing error */ }
+        throw new Error(errorMsg);
+      }
 
       const data = await response.json();
-      setCounselors(data.counselors);
-      setPagination(data.pagination);
-      if (data.filters) setFilters(data.filters);
+      setCounselors(data.counselors || []);
+      setPagination(data.pagination || { total: 0, page: 1, limit: 10, totalPages: 0});
+      if (data.filters) setAvailableFilters(data.filters);
 
-      const newRouterQuery: Record<string, string> = {};
-      if (selectedState) newRouterQuery.state = selectedState;
-      if (selectedType) newRouterQuery.type = selectedType;
-      if (selectedSpecialization) newRouterQuery.specialization = selectedSpecialization;
-      if (searchTerm) newRouterQuery.search = searchTerm;
-      if (pageToFetch > 1) newRouterQuery.page = pageToFetch.toString();
-      else if (router.query.page) delete newRouterQuery.page;
-
-      const normalizedCurrentQuery: Record<string, string> = {};
-      if (router.query.state) normalizedCurrentQuery.state = router.query.state as string;
-      if (router.query.type) normalizedCurrentQuery.type = router.query.type as string;
-      if (router.query.specialization) normalizedCurrentQuery.specialization = router.query.specialization as string;
-      if (router.query.search) normalizedCurrentQuery.search = router.query.search as string;
-      if (router.query.page && parseInt(router.query.page as string, 10) > 1) {
-        normalizedCurrentQuery.page = router.query.page as string;
-      }
-
-      const currentQueryString = new URLSearchParams(normalizedCurrentQuery).toString();
-      const newQueryString = new URLSearchParams(newRouterQuery).toString();
-
-      if (currentQueryString !== newQueryString) {
-        router.push({
-          pathname: router.pathname,
-          query: newRouterQuery,
-        }, undefined, { shallow: true });
-      }
-
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching counselors:', error);
+      // Optionally set an error state to show in UI
+      // setError(error.message || 'Could not fetch counselors.'); 
     } finally {
       setLoading(false);
     }
-  }, [router, selectedState, selectedType, selectedSpecialization, searchTerm]);
+  }, [router.isReady, router.query]);
 
-  // Effect 2: Fetch data when filters or urlDrivenPage change
+  // Effect to fetch data when router.query changes
   useEffect(() => {
-    if (router.isReady) {
-      fetchCounselors(urlDrivenPage);
-    }
-  }, [
-    router.isReady, 
-    urlDrivenPage,
-    fetchCounselors
-  ]);
+    fetchCounselors();
+  }, [fetchCounselors]);
 
-  // Handle filter changes
+  const handleFilterChange = (updates: Record<string, string | undefined>) => {
+    const newQuery: Record<string, string> = { ...router.query as Record<string, string>, page: '1' };
+
+    for (const key in updates) {
+      if (updates[key]) {
+        newQuery[key] = updates[key] as string;
+      } else {
+        delete newQuery[key];
+      }
+    }
+    
+    router.push({ pathname: router.pathname, query: newQuery }, undefined, { shallow: true });
+  };
+  
   const handleStateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedState(e.target.value);
-    setUrlDrivenPage(1);
+    const newState = e.target.value;
+    setCurrentStateFilter(newState);
+    handleFilterChange({ state: newState });
   };
 
   const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedType(e.target.value);
-    setUrlDrivenPage(1);
+    const newType = e.target.value;
+    setCurrentTypeFilter(newType);
+    handleFilterChange({ type: newType });
   };
 
   const handleSpecializationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedSpecialization(e.target.value);
-    setUrlDrivenPage(1);
+    const newSpecialization = e.target.value;
+    setCurrentSpecializationFilter(newSpecialization);
+    handleFilterChange({ specialization: newSpecialization });
   };
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value);
+    setCurrentSearchTerm(e.target.value);
   };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setUrlDrivenPage(1);
+    handleFilterChange({ search: currentSearchTerm });
   };
 
   const handleReset = () => {
-    setSelectedState('');
-    setSelectedType('');
-    setSelectedSpecialization('');
-    setSearchTerm('');
-    setUrlDrivenPage(1);
+    setCurrentStateFilter('');
+    setCurrentTypeFilter('');
+    setCurrentSpecializationFilter('');
+    setCurrentSearchTerm('');
+    router.push({ pathname: router.pathname, query: { page: '1'} }, undefined, { shallow: true });
   };
 
   const handlePageChange = (newPage: number) => {
-    setUrlDrivenPage(newPage);
+    router.push({ pathname: router.pathname, query: { ...router.query, page: newPage.toString() } }, undefined, { shallow: true });
   };
 
+  // View counselor details - made unclickable by removing router.push
   const viewCounselorDetails = (counselorId: string) => {
-    router.push(`/counselors/${counselorId}`);
+    // router.push(`/counselors/${counselorId}`); // Commented out to make cards unclickable
+    console.log('Card click disabled for counselor ID:', counselorId);
   };
 
   return (
@@ -169,12 +170,12 @@ const CounselorsPage = ({ initialData }: CounselorsPageProps) => {
             <label htmlFor="state" className="block text-sm font-medium text-gray-700 mb-1">State</label>
             <select
               id="state"
-              value={selectedState}
+              value={currentStateFilter}
               onChange={handleStateChange}
               className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             >
               <option value="">All States</option>
-              {filters.states.map((stateItem) => (
+              {availableFilters.states.map((stateItem) => (
                 <option key={stateItem} value={stateItem}>
                   {stateItem}
                 </option>
@@ -186,12 +187,12 @@ const CounselorsPage = ({ initialData }: CounselorsPageProps) => {
             <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">Type</label>
             <select
               id="type"
-              value={selectedType}
+              value={currentTypeFilter}
               onChange={handleTypeChange}
               className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             >
               <option value="">All Types</option>
-              {filters.types.map((typeItem) => (
+              {availableFilters.types.map((typeItem) => (
                 <option key={typeItem} value={typeItem}>
                   {typeItem}
                 </option>
@@ -203,12 +204,12 @@ const CounselorsPage = ({ initialData }: CounselorsPageProps) => {
             <label htmlFor="specialization" className="block text-sm font-medium text-gray-700 mb-1">Specialization</label>
             <select
               id="specialization"
-              value={selectedSpecialization}
+              value={currentSpecializationFilter}
               onChange={handleSpecializationChange}
               className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             >
               <option value="">All Specializations</option>
-              {filters.specializations.map((spec) => (
+              {(availableFilters.specializations || []).map((spec) => (
                 <option key={spec} value={spec}>
                   {spec}
                 </option>
@@ -222,7 +223,7 @@ const CounselorsPage = ({ initialData }: CounselorsPageProps) => {
               <input
                 type="text"
                 id="search"
-                value={searchTerm}
+                value={currentSearchTerm}
                 onChange={handleSearchChange}
                 placeholder="Counselor name, language..."
                 className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
@@ -252,7 +253,7 @@ const CounselorsPage = ({ initialData }: CounselorsPageProps) => {
         {/* Results count */}
         <div className="flex justify-between items-center mb-4">
           <p className="text-gray-600">
-            Found {pagination.total} counselor{pagination.total !== 1 ? 's' : ''}
+            Found {pagination.total || 0} counselor{pagination.total !== 1 ? 's' : ''}
           </p>
         </div>
         
@@ -272,14 +273,15 @@ const CounselorsPage = ({ initialData }: CounselorsPageProps) => {
               <CounselorCard
                 key={counselor._id?.toString()}
                 counselor={counselor}
-                onClick={() => viewCounselorDetails(counselor._id?.toString() || '')}
+                // onClick={() => viewCounselorDetails(counselor._id?.toString() || '')} // Card is now unclickable as per request
+                // To make it explicitly unclickable or appear different, you might add CSS or remove hover effects in CounselorCard component
               />
             ))}
           </div>
         )}
         
-        {/* Pagination */}
-        {pagination.totalPages > 1 && (
+        {/* Pagination (ensure pagination object is safely accessed) */}
+        {(pagination?.totalPages || 0) > 1 && (
           <div className="flex justify-center mt-8">
             <nav className="flex items-center space-x-1">
               <button
@@ -362,7 +364,22 @@ export const getServerSideProps: GetServerSideProps = async ({ query }) => {
   if (search) queryParams.append('search', search as string);
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-  const response = await fetch(`${baseUrl}/api/counselors?${queryParams.toString()}`);
+  let apiResponse;
+  try {
+    apiResponse = await fetch(`${baseUrl}/api/counselors?${queryParams.toString()}`);
+  } catch (error: any) {
+    console.error("Fetch error in getServerSideProps for counselors:", error.message);
+    // Return initial data structure on fetch failure to prevent 500 error on page
+    return {
+        props: {
+            initialData: {
+                counselors: [],
+                pagination: { total: 0, page: parseInt(page as string, 10), limit: 10, totalPages: 0 },
+                filters: { states: [], types: [], specializations: [] },
+            },
+        },
+    };
+  }
   
   let initialData = {
     counselors: [],
@@ -370,11 +387,17 @@ export const getServerSideProps: GetServerSideProps = async ({ query }) => {
     filters: { states: [], types: [], specializations: [] },
   };
 
-  if (response.ok) {
-    const data = await response.json();
-    initialData = data;
+  if (apiResponse.ok) {
+    try {
+      const data = await apiResponse.json();
+      initialData = data; 
+    } catch (error: any) {
+        console.error("JSON parsing error in getServerSideProps for counselors:", error.message);
+        // initialData remains as default, preventing 500 error on page
+    }
   } else {
-    console.error("Failed to fetch initial counselors in getServerSideProps:", response.status, await response.text());
+    console.error("Failed to fetch initial counselors in getServerSideProps:", apiResponse.status, await apiResponse.text());
+    // initialData remains as default
   }
 
   return {

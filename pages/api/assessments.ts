@@ -80,7 +80,30 @@ export default async function handler(
         ];
 
         if (sortField && allowedSortFields.includes(sortField)) {
-          sortOptions = { [sortField]: sortOrder === 'asc' ? 1 : -1 };
+          console.log(`Sorting by field: ${sortField}, order: ${sortOrder}`);
+          
+          // Handle special cases for userId.name and userId.email
+          if (sortField === 'userId.name' || sortField === 'userId.email') {
+            // For these fields, we'll need to handle the sorting after fetching data
+            // Just note it here and we'll do special sort processing later
+            console.log(`Special sorting field detected: ${sortField}. Will handle after fetch.`);
+          } 
+          // Improved date field handling - normalize timestamp and createdAt
+          else if (sortField === 'timestamp' || sortField === 'createdAt') {
+            // Always use createdAt for server-side sorting as it's more reliable
+            // timestamp may be inconsistent in older data
+            sortOptions = { 'createdAt': sortOrder === 'asc' ? 1 : -1 };
+            console.log(`Date field sorting using createdAt: ${sortOrder === 'asc' ? 'ascending' : 'descending'}`);
+          }
+          // Handle various score fields
+          else if (sortField === 'totalScore' || sortField === 'glaucomaScore' || sortField === 'cancerScore') {
+            // We need to handle post-fetch sorting for score fields because of multiple score field formats
+            console.log(`Score field sorting detected: ${sortField}. Will handle after fetch.`);
+          }
+          else {
+            sortOptions = { [sortField]: sortOrder === 'asc' ? 1 : -1 };
+            console.log("Sort options set to:", sortOptions);
+          }
         }
         
         let query: any = {};
@@ -122,10 +145,15 @@ export default async function handler(
 
           if (req.query.type && typeof req.query.type === 'string' && req.query.type.trim() !== '') {
             andConditions.push({ type: req.query.type.trim() });
+            console.log("Added type filter:", req.query.type);
+          } else if (req.query.illnessType && typeof req.query.illnessType === 'string' && req.query.illnessType.trim() !== '') {
+            // For backwards compatibility
+            andConditions.push({ type: req.query.illnessType.trim() });
+            console.log("Added illnessType filter (legacy):", req.query.illnessType);
           }
 
           const minScoreRaw = req.query.minScore as string;
-          const typeForScoreFilter = req.query.type as string; // Use the type from the illness filter if present
+          const typeForScoreFilter = (req.query.type || req.query.illnessType) as string; // Use the type from any filter param
 
           if (minScoreRaw) {
             const minScore = parseFloat(minScoreRaw);
@@ -133,16 +161,20 @@ export default async function handler(
               let scoreFilterConditions: any[] = [];
               if (typeForScoreFilter && typeForScoreFilter.trim() !== '') {
                 scoreFilterConditions = generateRiskFilterConditions(typeForScoreFilter.trim(), { gte: minScore });
+                console.log("Added score filter for specific type:", typeForScoreFilter, "with min score:", minScore);
               } else {
                 scoreFilterConditions = [
                   { totalScore: { $gte: minScore } },
                   { glaucomaScore: { $gte: minScore } },
                   { cancerScore: { $gte: minScore } }
                 ];
+                console.log("Added generic score filter with min score:", minScore);
               }
               if (scoreFilterConditions.length > 0) {
                 andConditions.push({ $or: scoreFilterConditions });
               }
+            } else {
+              console.log("Ignoring invalid minScore value:", minScoreRaw);
             }
           }
           
@@ -173,6 +205,89 @@ export default async function handler(
             .skip(skip)
             .limit(limit)
             .lean();
+          
+          // Special handling for sorting populated fields post-fetch
+          if (sortField && (sortField === 'userId.name' || sortField === 'userId.email')) {
+            console.log(`Post-processing sort for ${sortField}`);
+            
+            // For userId.name field - handle both string and object name formats
+            if (sortField === 'userId.name') {
+              assessments.sort((a, b) => {
+                // Handle cases where userId might be null
+                if (!a.userId) return sortOrder === 'asc' ? -1 : 1;
+                if (!b.userId) return sortOrder === 'asc' ? 1 : -1;
+                
+                // Extract name strings for comparison
+                let nameA = '';
+                let nameB = '';
+                
+                // Handle different name formats
+                if (typeof a.userId.name === 'string') {
+                  nameA = a.userId.name;
+                } else if (a.userId.name) {
+                  nameA = `${a.userId.name.first || ''} ${a.userId.name.last || ''}`.trim();
+                }
+                
+                if (typeof b.userId.name === 'string') {
+                  nameB = b.userId.name;
+                } else if (b.userId.name) {
+                  nameB = `${b.userId.name.first || ''} ${b.userId.name.last || ''}`.trim();
+                }
+                
+                return sortOrder === 'asc' 
+                  ? nameA.localeCompare(nameB)
+                  : nameB.localeCompare(nameA);
+              });
+            }
+            
+            // For userId.email field
+            else if (sortField === 'userId.email') {
+              assessments.sort((a, b) => {
+                // Handle cases where userId might be null
+                if (!a.userId) return sortOrder === 'asc' ? -1 : 1;
+                if (!b.userId) return sortOrder === 'asc' ? 1 : -1;
+                
+                const emailA = a.userId.email || '';
+                const emailB = b.userId.email || '';
+                
+                return sortOrder === 'asc' 
+                  ? emailA.localeCompare(emailB)
+                  : emailB.localeCompare(emailA);
+              });
+            }
+            
+            console.log("Successfully applied post-processing sort");
+          }
+          
+          // Handle score field sorting after fetch
+          if (sortField && (sortField === 'totalScore' || sortField === 'glaucomaScore' || sortField === 'cancerScore')) {
+            console.log(`Post-processing sort for score field: ${sortField}`);
+            
+            assessments.sort((a, b) => {
+              // Helper function to get the correct score from an assessment
+              const getScore = (assessment: any) => {
+                // For totalScore field
+                if (sortField === 'totalScore') {
+                  return assessment.totalScore ?? 
+                         (assessment.type === 'glaucoma' ? assessment.glaucomaScore : assessment.cancerScore) ?? 
+                         0;
+                }
+                // For specific score fields
+                return assessment[sortField] ?? 0;
+              };
+              
+              const scoreA = getScore(a);
+              const scoreB = getScore(b);
+              
+              // Sort numerically
+              return sortOrder === 'asc' 
+                ? scoreA - scoreB
+                : scoreB - scoreA;
+            });
+            
+            console.log("Successfully applied score sorting");
+          }
+          
           console.log("API /api/assessments - Assessments fetched by find (first 5 if many):", JSON.stringify(assessments.slice(0,5), null, 2));
         } else {
           console.log("API /api/assessments - No assessments to fetch via find() as count is 0.");

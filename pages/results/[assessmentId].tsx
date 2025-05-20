@@ -23,8 +23,8 @@ const getBackgroundClasses = (score: number, type: string): string => {
   
   const bgClassMatch = scoreColorClass.match(/bg-([a-zA-Z]+)-(\d+)/);
   if (bgClassMatch && bgClassMatch[1]) {
-    const baseColor = bgClassMatch[1]; // e.g., 'red', 'green'
-    return `bg-${baseColor}-300`; 
+    const baseColor = bgClassMatch[1]; // e.g., 'rose', 'emerald'
+    return `bg-${baseColor}-100`; // Use a lighter shade, e.g., bg-rose-100
   }
   return 'bg-gray-100'; 
 }
@@ -121,7 +121,7 @@ const ResultsPage: NextPage<ResultsPageProps> = ({ assessment: initialAssessment
   }
 
   const assessmentTypeDisplay = initialAssessment.type.charAt(0).toUpperCase() + initialAssessment.type.slice(1);
-  const themeColor = initialAssessment.type === 'glaucoma' ? "#28a745" : (initialAssessment.type === 'cancer' ? "#e83e8c" : "#007bff");
+  const themeColor = initialAssessment.type === 'glaucoma' ? '#10B981' : (initialAssessment.type === 'cancer' ? '#F43F5E' : '#8B5CF6');
   const scoreColorClass = initialAssessment 
     ? initialAssessment.type === 'glaucoma' 
       ? getGlaucomaScoreColor(initialAssessment.totalScore)
@@ -334,9 +334,11 @@ export const getServerSideProps: GetServerSideProps<ResultsPageProps, Params> = 
 
     const assessmentUserIdString = (assessment.userId as any)?._id?.toString();
 
-    const isAdmin = userRole === 'admin';
+    const isAdmin = typeof userRole === 'string' && userRole.toLowerCase() === 'admin';
+    const isDoctor = typeof userRole === 'string' && userRole.toLowerCase() === 'doctor';
 
-    if (assessmentUserIdString !== session.user.id && !isAdmin) {
+    // Allow viewing if user is admin, doctor, or the assessment owner
+    if (assessmentUserIdString !== session.user.id && !isAdmin && !isDoctor) {
       return { props: { error: 'You are not authorized to view this assessment.' } };
     }
 
