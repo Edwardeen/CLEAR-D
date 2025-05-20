@@ -58,8 +58,13 @@ const HospitalsPage = ({ initialData }: HospitalsPageProps) => {
     if (typeFromQuery) queryParams.append('type', typeFromQuery);
     if (searchFromQuery) queryParams.append('search', searchFromQuery);
 
+    // Use NEXT_PUBLIC_BASE_URL for client-side requests, fallback to relative path
+    const apiBaseUrl = process.env.NEXT_PUBLIC_BASE_URL || ''; 
+    const apiUrl = `${apiBaseUrl}/api/hospitals?${queryParams.toString()}`;
+    // console.log(`[fetchHospitals /hospitals] Fetching from: ${apiUrl}`); // Keep for debugging if needed
+
     try {
-      const response = await fetch(`/api/hospitals?${queryParams.toString()}`);
+      const response = await fetch(apiUrl);
       if (!response.ok) throw new Error('Failed to fetch hospitals');
 
       const data = await response.json();
@@ -303,13 +308,13 @@ const HospitalsPage = ({ initialData }: HospitalsPageProps) => {
   );
 };
 
-export const getServerSideProps: GetServerSideProps = async ({ query }) => {
+export const getServerSideProps: GetServerSideProps = async (context) => {
   const {
     page = '1',
     state = '',
     type = '',
     search = '',
-  } = query;
+  } = context.query; // Correct: Use context.query
 
   const queryParams = new URLSearchParams();
   queryParams.append('page', page as string);
@@ -317,28 +322,46 @@ export const getServerSideProps: GetServerSideProps = async ({ query }) => {
   if (type) queryParams.append('type', type as string);
   if (search) queryParams.append('search', search as string);
 
-  // Determine the base URL for API requests
-  // In a server-side context (getServerSideProps), you need to use an absolute URL.
-  // If running locally, this might be http://localhost:3000.
-  // In production, this would be your production domain.
-  // Using a relative URL like '/api/hospitals' won't work directly in fetch within getServerSideProps.
-  // For simplicity, this example assumes the API is on the same origin,
-  // but in a real app, you might need to construct this more robustly.
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-  const response = await fetch(`${baseUrl}/api/hospitals?${queryParams.toString()}`);
+  let apiBaseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+
+  if (!apiBaseUrl) {
+    // Fallback for local development or if NEXT_PUBLIC_BASE_URL is not set server-side
+    const protocol = context.req.headers['x-forwarded-proto'] || 'http';
+    const host = context.req.headers.host || 'localhost:3000';
+    apiBaseUrl = `${protocol}://${host}`;
+    console.warn(
+      `[getServerSideProps /hospitals] WARNING: NEXT_PUBLIC_BASE_URL is not set. Falling back to dynamically constructed URL: ${apiBaseUrl}. It's recommended to set NEXT_PUBLIC_BASE_URL in your environment variables.`
+    );
+  }
   
+  const apiUrl = `${apiBaseUrl}/api/hospitals?${queryParams.toString()}`;
+  console.log(`[getServerSideProps /hospitals] Fetching from: ${apiUrl}`); 
+
   let initialData = {
     hospitals: [],
-    pagination: { total: 0, page: parseInt(page as string, 10), limit: 10, totalPages: 0 },
+    pagination: { total: 0, page: parseInt(page as string, 10), limit: 10, totalPages: 0 }, // Default limit, API should confirm
     filters: { states: [], types: [] },
   };
 
-  if (response.ok) {
-    const data = await response.json();
-    initialData = data; // Assuming API returns data in the expected structure
-  } else {
-    console.error("Failed to fetch initial hospitals in getServerSideProps:", response.status, await response.text());
-    // You might want to return an error prop to the page or handle this differently
+  try {
+    const response = await fetch(apiUrl);
+    if (response.ok) {
+      const data = await response.json();
+      // Ensure the structure from API matches expected initialData structure
+      initialData = {
+        hospitals: data.hospitals || [],
+        pagination: data.pagination || initialData.pagination,
+        filters: data.filters || initialData.filters,
+      };
+    } else {
+      console.error("[getServerSideProps /hospitals] Failed to fetch initial hospitals:", response.status, await response.text());
+      // Optionally, pass an error flag or specific error message to the page
+      // For a 500, this block might not even be reached if fetch itself throws hard.
+    }
+  } catch (e) {
+    console.error("[getServerSideProps /hospitals] Exception during fetch:", e);
+    // If fetch throws (network error, etc.), this will catch it.
+    // Return current (default) initialData to prevent page crash, but log error.
   }
 
   return {
