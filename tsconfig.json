@@ -20,8 +20,14 @@
     "incremental": true,
     "baseUrl": ".",
     "paths": {
+      "@/*": [
+        "*"
+      ],
       "@/components/*": [
         "components/*"
+      ],
+      "@/lib/*": [
+        "lib/*"
       ],
       "@/utils/*": [
         "utils/*"

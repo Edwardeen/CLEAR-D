@@ -1,9 +1,13 @@
 import type { NextPage, GetServerSideProps } from 'next';
 import { useState, FormEvent } from 'react';
-import { signIn, getSession } from 'next-auth/react';
+import { signIn } from 'next-auth/react';
+import { getServerSession } from 'next-auth';
+import { authOptions } from './api/auth/[...nextauth]';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import React from 'react';
+import Image from 'next/image';
+import Logo from 'logo.png'
 
 const LoginPage: NextPage = () => {
   const [email, setEmail] = useState('');
@@ -11,7 +15,7 @@ const LoginPage: NextPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const router = useRouter();
-  const { callbackUrl } = router.query; // Get callbackUrl from query params if present
+  const { callbackUrl } = router.query;
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -25,7 +29,7 @@ const LoginPage: NextPage = () => {
     }
 
     const result = await signIn('credentials', {
-      redirect: false, // Prevent NextAuth from redirecting automatically
+      redirect: false, 
       email: email,
       password: password,
     });
@@ -33,38 +37,47 @@ const LoginPage: NextPage = () => {
     setLoading(false);
 
     if (result?.error) {
-      // Handle specific errors returned from the authorize function
       setError(result.error);
       console.error('Login failed:', result.error);
     } else if (result?.ok) {
-      // Login successful, redirect manually
       console.log('Login successful, redirecting...');
-      // Redirect to callbackUrl if provided, otherwise to home page
       router.push((callbackUrl as string) || '/');
     } else {
-      // Handle unexpected cases
       setError('An unknown error occurred during login.');
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-[calc(100vh-200px)] bg-gradient-to-br from-blue-50 via-white to-purple-50 px-4 py-12 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-xl">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-semibold text-gray-900">
-            Sign in to your account
-          </h2>
+    <div className="relative flex items-center justify-center min-h-screen overflow-hidden bg-gradient-to-br from-slate-100 via-gray-100 to-blue-50 p-4 sm:p-6 lg:p-8">
+      <div className="relative max-w-md w-full space-y-8 bg-white p-8 sm:p-10 rounded-2xl shadow-xl border border-gray-200/50">
+        <div className="text-center">
+           <Image 
+              src={Logo} 
+              alt="Logo" 
+              width={300}
+              height={120}
+              className="mx-auto mb-4"
+          />
+          {/* <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">
+            Sign in to CLEAR-D
+          </h2> */}
+           <p className="mt-2 text-sm text-gray-600">
+            Sign in to Access your health assessment portal.
+          </p>
         </div>
-        <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+        
+        <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
-            <div className="bg-red-100 border border-red-400 text-red-800 px-4 py-3 rounded text-sm" role="alert">
-              {error}
+            <div className="bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded-md text-sm flex items-center space-x-2" role="alert">
+              <span>{error}</span>
             </div>
           )}
+          
           <input type="hidden" name="remember" defaultValue="true" />
-          <div className="rounded-md shadow-sm -space-y-px">
+          
+          <div className="space-y-4">
             <div>
-              <label htmlFor="email-address" className="sr-only">
+              <label htmlFor="email-address" className="block text-sm font-medium text-gray-700 mb-1">
                 Email address
               </label>
               <input
@@ -75,13 +88,13 @@ const LoginPage: NextPage = () => {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm transition duration-150 ease-in-out"
-                placeholder="Email address"
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-purple-500 focus:border-purple-500 sm:text-sm transition duration-150 ease-in-out"
+                placeholder="you@example.com"
                 disabled={loading}
               />
             </div>
             <div>
-              <label htmlFor="password" className="sr-only">
+               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
                 Password
               </label>
               <input
@@ -92,23 +105,10 @@ const LoginPage: NextPage = () => {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm transition duration-150 ease-in-out"
-                placeholder="Password"
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-purple-500 focus:border-purple-500 sm:text-sm transition duration-150 ease-in-out"
+                placeholder="••••••••"
                 disabled={loading}
               />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="text-sm">
-              {/* Placeholder for Remember me if needed */}
-            </div>
-
-            <div className="text-sm">
-              <Link href="/forgot-password" // Assuming you have a forgot password page route
-                    className="font-medium text-purple-600 hover:text-purple-500 transition duration-150 ease-in-out">
-                Forgot your password?
-              </Link>
             </div>
           </div>
 
@@ -116,43 +116,50 @@ const LoginPage: NextPage = () => {
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-60 disabled:cursor-not-allowed transition duration-150 ease-in-out"
+              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-70 disabled:cursor-not-allowed transition duration-150 ease-in-out"
             >
-              <span className="absolute left-0 inset-y-0 flex items-center pl-3">
-                {/* Optional: Lock icon or similar */}
-              </span>
-              {loading ? 'Signing in...' : 'Sign in'}
+              {loading ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Signing in...
+                </>
+               ) : ( 
+                 'Sign in'
+               )}
             </button>
           </div>
         </form>
-         <p className="mt-6 text-center text-sm text-gray-600">
-            Don&apos;t have an account?{' '}
-            <Link href="/register" className="font-medium text-purple-600 hover:text-purple-500 transition duration-150 ease-in-out">
-               Register here
-            </Link>
-         </p>
+        
+        <div className="text-center text-sm text-gray-600 space-y-2">
+             <p>
+                Don&apos;t have an account?{' '}
+                <Link href="/register" className="font-semibold text-purple-600 hover:text-purple-500 hover:underline ml-1 transition duration-150 ease-in-out">
+                   Register here
+                </Link>
+             </p>
+
+         </div>
       </div>
     </div>
   );
 };
 
-// Prevent authenticated users from accessing the login page
 export const getServerSideProps: GetServerSideProps = async (context) => {
-  const session = await getSession(context);
+  const session = await getServerSession(context.req, context.res, authOptions);
 
   if (session) {
-    // If user is already logged in, redirect them away from login page
     return {
       redirect: {
-        destination: '/', // Redirect to home page or dashboard
+        destination: '/', 
         permanent: false,
       },
     };
   }
-
-  // If not logged in, allow access to the login page
   return {
-    props: {}, // No specific props needed for login page itself
+    props: {},
   };
 };
 

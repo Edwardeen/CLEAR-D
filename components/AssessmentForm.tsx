@@ -3,6 +3,9 @@ import { useRouter } from 'next/router';
 import { useSession } from 'next-auth/react';
 import { IFormData, IAssessment } from '../models/Assessment';
 import { parseExcel } from '../utils/parseExcel';
+import GlobalAverageChart from './GlobalAverageChart';
+import { calculateGlaucomaScore, calculateCancerScore } from '../utils/riskCalculator';
+import { getGlaucomaScoreColor, getCancerScoreColor } from '../utils/scoreColors';
 
 // Define the structure for form questions
 interface Question {
@@ -253,65 +256,90 @@ const AssessmentForm: React.FC = () => {
         </div>
     );
 
+    // Calculate scores based on current form data
+    // Use initialFormData as default values if a field is undefined
+    const currentCompleteFormData: IFormData = { ...initialFormData, ...formData };
+    const glaucomaScore = calculateGlaucomaScore(currentCompleteFormData);
+    const cancerScore = calculateCancerScore(currentCompleteFormData);
+
     return (
-        <form onSubmit={handleSubmit} className="space-y-8 max-w-4xl mx-auto bg-white p-6 sm:p-8 rounded-lg shadow-lg">
-            <h1 className="text-2xl sm:text-3xl font-bold text-center text-gray-800 mb-6">Health Risk Assessment</h1>
+        <div className="space-y-8 max-w-4xl mx-auto">
+            {/* Global Average Chart - Added at the top */}
+            <GlobalAverageChart />
+            
+            <form onSubmit={handleSubmit} className="bg-white p-6 sm:p-8 rounded-lg shadow-lg space-y-8">
+                <h1 className="text-2xl sm:text-3xl font-bold text-center text-gray-800 mb-6">Health Risk Assessment</h1>
 
-             {/* Error Display */}
-             {error && (
-                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
-                    <strong className="font-bold">Error!</strong>
-                    <span className="block sm:inline"> {error}</span>
+                {/* Error Display */}
+                {error && (
+                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
+                        <strong className="font-bold">Error!</strong>
+                        <span className="block sm:inline"> {error}</span>
+                    </div>
+                )}
+
+                {/* Live Score Display Section */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                    <div className={`p-4 border rounded-lg text-center shadow-sm ${getGlaucomaScoreColor(glaucomaScore)}`}>
+                        <h3 className="text-lg font-semibold">Glaucoma Score (Live)</h3>
+                        <p className="text-3xl font-bold">{glaucomaScore} <span className="text-lg font-normal">/ 10</span></p>
+                        <p className="text-sm">({(glaucomaScore / 10 * 100).toFixed(0)}% Risk)</p>
+                    </div>
+                    <div className={`p-4 border rounded-lg text-center shadow-sm ${getCancerScoreColor(cancerScore)}`}>
+                        <h3 className="text-lg font-semibold">Cancer Score (Live)</h3>
+                        <p className="text-3xl font-bold">{cancerScore} <span className="text-lg font-normal">/ 10</span></p>
+                        <p className="text-sm">({(cancerScore / 10 * 100).toFixed(0)}% Risk)</p>
+                    </div>
                 </div>
-            )}
 
-             {/* File Upload Section */}
-            <div className="border border-dashed border-gray-300 p-4 rounded-md text-center bg-gray-50">
-                 <label htmlFor="excel-upload" className="block text-sm font-medium text-gray-700 mb-2">
-                    Auto-fill from Excel (.xlsx):
-                 </label>
-                 <input
-                    ref={fileInputRef}
-                    type="file"
-                    id="excel-upload"
-                    accept=".xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    onChange={handleFileChange}
-                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50 disabled:pointer-events-none"
-                    disabled={loading}
-                />
-                {fileError && <p className="text-red-500 text-xs mt-2">{fileError}</p>}
-                 <p className="text-xs text-gray-500 mt-2">Upload an Excel file with a sheet named &apos;Data&apos; and columns matching question identifiers (e.g., ElevatedIOP, FamilyHistoryCancer). Values should be &apos;Yes&apos;/&apos;No&apos; or TRUE/FALSE.</p>
-            </div>
-
-            {/* Glaucoma Section */}
-            <section className="space-y-4 p-4 border border-green-200 rounded-lg bg-green-50">
-                <h2 className="text-xl font-semibold text-green-800 border-b border-green-300 pb-2">Glaucoma Risk Factors</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                     {formQuestions.filter(q => q.section === 'glaucoma' && !q.isShared).map(renderYesNoRadio)}
-                     {/* Render shared questions only once */} 
-                      {formQuestions.filter(q => q.isShared).map(renderYesNoRadio)}
+                {/* File Upload Section */}
+                <div className="border border-dashed border-gray-300 p-4 rounded-md text-center bg-gray-50">
+                    <label htmlFor="excel-upload" className="block text-sm font-medium text-gray-700 mb-2">
+                        Auto-fill from Excel (.xlsx):
+                    </label>
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        id="excel-upload"
+                        accept=".xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        onChange={handleFileChange}
+                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50 disabled:pointer-events-none"
+                        disabled={loading}
+                    />
+                    {fileError && <p className="text-red-500 text-xs mt-2">{fileError}</p>}
+                    <p className="text-xs text-gray-500 mt-2">Upload an Excel file with a sheet named &apos;Data&apos; and columns matching question identifiers (e.g., ElevatedIOP, FamilyHistoryCancer). Values should be &apos;Yes&apos;/&apos;No&apos; or TRUE/FALSE.</p>
                 </div>
-            </section>
 
-            {/* Cancer Section */}
-            <section className="space-y-4 p-4 border border-purple-200 rounded-lg bg-purple-50">
-                <h2 className="text-xl font-semibold text-purple-800 border-b border-purple-300 pb-2">Cancer Risk Factors</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {formQuestions.filter(q => q.section === 'cancer').map(renderYesNoRadio)}
+                {/* Glaucoma Section */}
+                <section className="space-y-4 p-4 border border-green-200 rounded-lg bg-green-50">
+                    <h2 className="text-xl font-semibold text-green-800 border-b border-green-300 pb-2">Glaucoma Risk Factors</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {formQuestions.filter(q => q.section === 'glaucoma' && !q.isShared).map(renderYesNoRadio)}
+                        {/* Render shared questions only once */} 
+                        {formQuestions.filter(q => q.isShared).map(renderYesNoRadio)}
+                    </div>
+                </section>
+
+                {/* Cancer Section */}
+                <section className="space-y-4 p-4 border border-purple-200 rounded-lg bg-purple-50">
+                    <h2 className="text-xl font-semibold text-purple-800 border-b border-purple-300 pb-2">Cancer Risk Factors</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {formQuestions.filter(q => q.section === 'cancer').map(renderYesNoRadio)}
+                    </div>
+                </section>
+
+                {/* Submission Button */}
+                <div className="text-center pt-6">
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full sm:w-auto inline-flex justify-center py-3 px-6 border border-transparent shadow-sm text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition duration-150 ease-in-out"
+                    >
+                        {loading ? 'Processing...' : 'Calculate Risk & Submit'}
+                    </button>
                 </div>
-            </section>
-
-             {/* Submission Button */}
-            <div className="text-center pt-6">
-                <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full sm:w-auto inline-flex justify-center py-3 px-6 border border-transparent shadow-sm text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition duration-150 ease-in-out"
-                >
-                    {loading ? 'Processing...' : 'Calculate Risk & Submit'}
-                </button>
-            </div>
-        </form>
+            </form>
+        </div>
     );
 };
 
