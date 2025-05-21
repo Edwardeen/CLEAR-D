@@ -22,7 +22,6 @@ const HospitalDetailsPage = ({ initialData, error }: HospitalDetailsProps) => {
   const fetchHospital = useCallback(async () => {
     if (!id) return;
     setLoading(true);
-    setErrorMessage('');
     
     try {
       const response = await fetch(`/api/hospitals/${id}`);
@@ -31,24 +30,56 @@ const HospitalDetailsPage = ({ initialData, error }: HospitalDetailsProps) => {
       }
       
       const data = await response.json();
-      setHospital(data.hospital);
+      console.log('Frontend - Received API data:', JSON.stringify(data, null, 2));
+      
+      if (data.hospital && typeof data.hospital === 'object' && data.hospital._id) {
+        setHospital(data.hospital);
+        setErrorMessage('');
+      } else {
+        setHospital(null);
+        setErrorMessage('Hospital information could not be retrieved.');
+      }
     } catch (error) {
       console.error('Error fetching hospital:', error);
-      setErrorMessage('Failed to load hospital details. Please try again.');
+      const message = error instanceof Error ? error.message : 'Failed to load hospital details. Please try again.';
+      setErrorMessage(message);
+      setHospital(null);
     } finally {
       setLoading(false);
     }
   }, [id]);
 
   useEffect(() => {
-    if (!initialData?.hospital && !loading && id) {
-      fetchHospital();
+    const currentIdStr = id ? String(id) : undefined;
+
+    if (!currentIdStr) {
+      setHospital(null);
+      setLoading(false);
+      setErrorMessage('');
+      return;
     }
-    else if (initialData?.hospital && hospital?.id !== initialData.hospital.id) {
-       setHospital(initialData.hospital);
-       setLoading(false);
+
+    if (initialData?.hospital && String(initialData.hospital._id) === currentIdStr) {
+      if (!hospital || String(hospital._id) !== String(initialData.hospital._id)) {
+        setHospital(initialData.hospital);
+      }
+      setLoading(false);
+      setErrorMessage('');
+      return;
     }
-  }, [id, initialData, loading, fetchHospital, hospital?.id]);
+    
+    if (
+      (!initialData?.hospital || String(initialData.hospital._id) !== currentIdStr) &&
+      (!hospital || String(hospital._id) !== currentIdStr)
+    ) {
+      if (!(hospital === null && !loading && errorMessage)) {
+        fetchHospital();
+      }
+    }
+    else if (hospital && String(hospital._id) === currentIdStr) {
+      setLoading(false);
+    }
+  }, [id, initialData, hospital, fetchHospital, loading, errorMessage]);
 
   // Format specialists for display
   const renderSpecialists = () => {

@@ -28,6 +28,7 @@ export default async function handler(
         return res.status(404).json({ error: 'Hospital not found' });
       }
 
+      console.log('API - Sending hospital data:', JSON.stringify(hospital, null, 2));
       res.status(200).json({ hospital });
     } catch (error: any) {
       console.error('Error fetching hospital:', error);

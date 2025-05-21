@@ -12,6 +12,8 @@ export interface IOperatingHours {
 }
 
 export interface IHospital extends Document {
+  _id: mongoose.Types.ObjectId;
+  id?: string;
   name: string;
   type: "Kerajaan" | "Swasta" | "Individual" | "NGO" | "Other";
   state: string;
