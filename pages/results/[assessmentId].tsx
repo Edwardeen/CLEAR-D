@@ -15,18 +15,20 @@ import { getRiskLevelName } from '../../utils/riskUtils'; // Added import
 // Icon placeholder (e.g., using a Unicode character or an SVG component later)
 const GearIcon = () => <span className="text-3xl">⚙️</span>; // Simple example
 
-// Helper function to get background classes based on score and type
+// Helper function to get background classes based on score and type with gradient backgrounds
 const getBackgroundClasses = (score: number, type: string): string => {
-  const scoreColorClass = type === 'glaucoma' 
-    ? getGlaucomaScoreColor(score) 
-    : getCancerScoreColor(score);
-  
-  const bgClassMatch = scoreColorClass.match(/bg-([a-zA-Z]+)-(\d+)/);
-  if (bgClassMatch && bgClassMatch[1]) {
-    const baseColor = bgClassMatch[1]; // e.g., 'rose', 'emerald'
-    return `bg-${baseColor}-100`; // Use a lighter shade, e.g., bg-rose-100
+  if (type === 'glaucoma') {
+    if (score >= 0 && score < 2.1) return 'bg-gradient-to-br from-green-200 to-green-300 bg-opacity-70'; // Low Risk
+    if (score >= 2.1 && score < 5) return 'bg-gradient-to-br from-yellow-200 to-yellow-300 bg-opacity-70'; // Moderate Risk
+    if (score >= 5 && score < 8) return 'bg-gradient-to-br from-orange-200 to-orange-300 bg-opacity-70'; // High Risk
+    if (score >= 8) return 'bg-gradient-to-br from-red-200 to-red-300 bg-opacity-70'; // Critical / Acute
+  } else if (type === 'cancer') {
+    if (score >= 0 && score < 3) return 'bg-gradient-to-br from-green-200 to-green-300 bg-opacity-70'; // Low Risk
+    if (score >= 3 && score < 5) return 'bg-gradient-to-br from-yellow-200 to-yellow-300 bg-opacity-70'; // Moderate Risk
+    if (score >= 5 && score < 7) return 'bg-gradient-to-br from-orange-200 to-orange-300 bg-opacity-70'; // High Risk
+    if (score >= 7) return 'bg-gradient-to-br from-red-200 to-red-300 bg-opacity-70'; // Very High Risk / Critical
   }
-  return 'bg-gray-100'; 
+  return 'bg-gradient-to-br from-gray-200 to-gray-300 bg-opacity-60'; // Default background
 }
 
 // Get recommendation based on score and type
