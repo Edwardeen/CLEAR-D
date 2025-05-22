@@ -251,6 +251,9 @@ const CardViewer: React.FC<CardViewerProps> = ({
                     width: '100%',
                     objectFit: 'contain',
                   }}
+                  unoptimized={true}
+                  priority={true}
+                  crossOrigin="anonymous"
                 />
               </div>
 
@@ -308,12 +311,34 @@ const CardViewer: React.FC<CardViewerProps> = ({
                 position: 'relative',
               }}>
                 {userPhotoUrl ? (
-                  <Image 
-                    src={userPhotoUrl} 
-                    alt={userName ? `${userName}&apos;s photo` : "User&apos;s photo"} 
-                    layout="fill"
-                    objectFit="cover"
-                  />
+                  <div style={{
+                    width: '100%',
+                    height: '100%',
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}>
+                    <Image 
+                      src={userPhotoUrl} 
+                      alt={userName ? `${userName}'s photo` : "User's photo"} 
+                      width={110}
+                      height={140}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        objectPosition: 'center'
+                      }}
+                      unoptimized={true}
+                      priority={true}
+                      crossOrigin="anonymous"
+                      onError={(e) => {
+                        // Replace with placeholder on error
+                        const imgElement = e.currentTarget as HTMLImageElement;
+                        imgElement.onerror = null; // Prevent infinite error loop
+                        imgElement.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMTIgMTFDMTQuMjA5MSAxMSAxNiA5LjIwOTE0IDE2IDdDMTYgNC43OTA4NiAxNC4yMDkxIDMgMTIgM0M5Ljc5MDg2IDMgOCA0Ljc5MDg2IDggN0M4IDkuMjA5MTQgOS43OTA4NiAxMSAxMiAxMVoiIGZpbGw9IiM5Q0EzQUYiLz48cGF0aCBkPSJNMTIgMTNDMTYuNDE4MyAxMyAyMCAxNi41ODE3IDIwIDIxSDRDNCAxNi41ODE3IDcuNTgxNzIgMTMgMTIgMTNaIiBmaWxsPSIjOUNBM0FGIi8+PC9zdmc+';
+                      }}
+                    />
+                  </div>
                 ) : (
                   <div style={{
                     width: '100%',

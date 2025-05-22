@@ -7,7 +7,9 @@ interface QuestionCardProps {
   questionId: string;
   onAnswer: (questionId: string, answer: string) => void;
   // Theme color for the 'Yes' button, e.g., 'green' or 'pink'
-  themeColor: 'green' | 'pink'; 
+  themeColor: 'green' | 'pink';
+  // Optional disabled prop to prevent multiple submissions
+  disabled?: boolean;
 }
 
 const QuestionCard: React.FC<QuestionCardProps> = ({
@@ -17,9 +19,10 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
   questionId,
   onAnswer,
   themeColor,
+  disabled = false,
 }) => {
-  const yesButtonClass = `px-8 py-3 text-white font-semibold rounded-lg shadow-md transition-colors text-lg ${themeColor === 'green' ? 'bg-green-500 hover:bg-green-600' : 'bg-pink-500 hover:bg-pink-600'}`;
-  const noButtonClass = "px-8 py-3 bg-gray-300 text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-400 transition-colors text-lg";
+  const yesButtonClass = `px-8 py-3 text-white font-semibold rounded-lg shadow-md transition-colors text-lg ${themeColor === 'green' ? 'bg-green-500 hover:bg-green-600' : 'bg-pink-500 hover:bg-pink-600'} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`;
+  const noButtonClass = `px-8 py-3 bg-gray-300 text-gray-700 font-semibold rounded-lg shadow-md hover:bg-gray-400 transition-colors text-lg ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`;
 
   return (
     <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-xl text-center">
@@ -34,12 +37,14 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
       <div className="flex justify-around space-x-4">
         <button 
           onClick={() => onAnswer(questionId, 'Yes')}
+          disabled={disabled}
           className={yesButtonClass}
         >
           Yes
         </button>
         <button 
           onClick={() => onAnswer(questionId, 'No')}
+          disabled={disabled}
           className={noButtonClass}
         >
           No

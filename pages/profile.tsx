@@ -522,37 +522,94 @@ const ProfilePage = () => {
   // Get the card to display - either real or mock
   const cardToDisplay = getCardData();
 
-  const handleDownloadCard = () => {
+  const handleDownloadCard = async () => {
     const cardElement = document.getElementById('card-container');
     if (cardElement) {
-      // Temporarily remove any max-width constraints for the download
-      const originalStyle = cardElement.getAttribute('style') || '';
-      cardElement.style.maxWidth = 'none';
-      cardElement.style.width = '450px'; // Set fixed width for consistency
-      
-      let nameString = 'user';
-      if (userData?.name) {
-        if (typeof userData.name === 'string') {
-          nameString = userData.name;
-        } else if (typeof userData.name === 'object' && userData.name.first) {
-          // Construct name, ensuring parts are defined
-          const firstName = userData.name.first || '';
-          const lastName = userData.name.last || '';
-          nameString = `${firstName}${lastName ? `_${lastName}` : ''}`.trim();
-          if (!nameString) nameString = 'user'; // Fallback if parts were empty
+      try {
+        // First, remove any existing notifications that might be lingering
+        const existingNotifications = document.querySelectorAll('div[style*="position: fixed"]');
+        existingNotifications.forEach(notification => {
+          if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+          }
+        });
+        
+        // Create a new notification with an ID for easier reference
+        const notification = document.createElement('div');
+        notification.id = 'pdf-notification';
+        notification.style.position = 'fixed';
+        notification.style.bottom = '20px';
+        notification.style.right = '20px';
+        notification.style.backgroundColor = '#2563EB';
+        notification.style.color = 'white';
+        notification.style.padding = '12px 20px';
+        notification.style.borderRadius = '4px';
+        notification.style.zIndex = '9999';
+        notification.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+        notification.innerText = 'Preparing PDF, please wait...';
+        document.body.appendChild(notification);
+        
+        // Ensure all images in the card are fully loaded before proceeding
+        const images = cardElement.querySelectorAll('img');
+        await Promise.all(Array.from(images).map(img => 
+          new Promise((resolve) => {
+            if (img.complete) {
+              // Image already loaded
+              resolve(null);
+            } else {
+              img.onload = () => resolve(null);
+              img.onerror = () => resolve(null); // Continue even if image fails
+              
+              // Ensure image attributes are set for better PDF handling
+              img.crossOrigin = 'anonymous';
+              img.setAttribute('unoptimized', 'true');
+              img.setAttribute('priority', 'true');
+            }
+          })
+        ));
+        
+        // Additional wait for rendering
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        // Temporarily remove any max-width constraints for the download
+        const originalStyle = cardElement.getAttribute('style') || '';
+        cardElement.style.maxWidth = 'none';
+        cardElement.style.width = '450px'; // Set fixed width for consistency
+        
+        // Generate name for the file
+        let nameString = 'user';
+        if (userData?.name) {
+          if (typeof userData.name === 'string') {
+            nameString = userData.name;
+          } else if (typeof userData.name === 'object' && userData.name.first) {
+            // Construct name, ensuring parts are defined
+            const firstName = userData.name.first || '';
+            const lastName = userData.name.last || '';
+            nameString = `${firstName}${lastName ? `_${lastName}` : ''}`.trim();
+            if (!nameString) nameString = 'user'; // Fallback if parts were empty
+          }
+        }
+        
+        const cardNo = cardToDisplay?.cardNo || 'card';
+        // Sanitize the nameString to remove/replace characters invalid for filenames
+        const sanitizedNameString = nameString.replace(/[^a-zA-Z0-9_.-]/g, '_');
+        
+        // Call the PDF generation utility
+        await downloadComponentAsPdf(cardElement, `${sanitizedNameString}_${cardNo}_CLEAR-D_CARD.pdf`);
+        
+        // Restore original style
+        cardElement.setAttribute('style', originalStyle);
+        
+      } catch (error) {
+        console.error('Error during PDF generation:', error);
+        alert('There was an error generating your PDF. Please try again.');
+        
+        // Ensure notification is removed in case of error
+        const notification = document.getElementById('pdf-notification');
+        if (notification && notification.parentNode) {
+          notification.parentNode.removeChild(notification);
         }
       }
-      
-      const cardNo = cardToDisplay?.cardNo || 'card';
-      // Sanitize the nameString to remove/replace characters invalid for filenames
-      const sanitizedNameString = nameString.replace(/[^a-zA-Z0-9_.-]/g, '_');
-  
-      downloadComponentAsPdf(cardElement, `${sanitizedNameString}_${cardNo}_CLEAR-D_CARD.pdf`);
-  
-      // Restore original style after a short delay to allow download to initiate
-      setTimeout(() => {
-        cardElement.setAttribute('style', originalStyle);
-      }, 100);
     }
   };
 

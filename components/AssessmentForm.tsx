@@ -216,6 +216,10 @@ const AssessmentForm: React.FC = () => {
         } catch (err: any) {
             console.error("Submission failed:", err);
             setError(err.message || 'An error occurred during submission.');
+            // Show error alert after a slight delay to ensure loading overlay is removed
+            setTimeout(() => {
+                window.alert(`Assessment submission failed: ${err.message || 'An unknown error occurred'}. Please try again.`);
+            }, 100);
         } finally {
             setLoading(false);
         }
@@ -339,6 +343,17 @@ const AssessmentForm: React.FC = () => {
                     </button>
                 </div>
             </form>
+            
+            {/* Loading Overlay */}
+            {loading && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white p-8 rounded-lg shadow-xl flex flex-col items-center max-w-md">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+                  <h3 className="text-xl font-semibold text-gray-800 mb-2">Submitting Assessment</h3>
+                  <p className="text-gray-600 text-center">Please wait while we process your assessment data...</p>
+                </div>
+              </div>
+            )}
         </div>
     );
 };

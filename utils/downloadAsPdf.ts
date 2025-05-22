@@ -7,31 +7,75 @@ export const downloadComponentAsPdf = async (element: HTMLElement, filename: str
     return;
   }
 
-  try {
-    // Show loading indicator
-    const loadingIndicator = document.createElement('div');
-    loadingIndicator.style.position = 'fixed';
-    loadingIndicator.style.top = '0';
-    loadingIndicator.style.left = '0';
-    loadingIndicator.style.width = '100%';
-    loadingIndicator.style.height = '100%';
-    loadingIndicator.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
-    loadingIndicator.style.display = 'flex';
-    loadingIndicator.style.flexDirection = 'column';
-    loadingIndicator.style.alignItems = 'center';
-    loadingIndicator.style.justifyContent = 'center';
-    loadingIndicator.style.zIndex = '10000';
-    loadingIndicator.innerHTML = `
-      <div style="width: 40px; height: 40px; border: 3px solid #f3f3f3; 
-                  border-top: 3px solid #3498db; border-radius: 50%; 
-                  animation: spin 1s linear infinite;"></div>
-      <p style="margin-top: 10px; font-family: sans-serif;">Generating PDF...</p>
-      <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); }}</style>
-    `;
-    document.body.appendChild(loadingIndicator);
+  // Find and remove any existing notifications first
+  const existingNotifications = document.querySelectorAll('div[style*="position: fixed"][style*="zIndex: 9999"]');
+  existingNotifications.forEach(notification => {
+    if (notification.parentNode) {
+      notification.parentNode.removeChild(notification);
+    }
+  });
 
-    // Wait for images to load
-    await new Promise(resolve => setTimeout(resolve, 1000));
+  // Find and remove any existing loading indicators
+  const existingLoaders = document.querySelectorAll('div[style*="position: fixed"][style*="zIndex: 10000"]');
+  existingLoaders.forEach(loader => {
+    if (loader.parentNode) {
+      loader.parentNode.removeChild(loader);
+    }
+  });
+
+  // Create new loading indicator with proper ID for easier removal
+  const loadingIndicator = document.createElement('div');
+  loadingIndicator.id = 'pdf-loading-indicator';
+  loadingIndicator.style.position = 'fixed';
+  loadingIndicator.style.top = '0';
+  loadingIndicator.style.left = '0';
+  loadingIndicator.style.width = '100%';
+  loadingIndicator.style.height = '100%';
+  loadingIndicator.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
+  loadingIndicator.style.display = 'flex';
+  loadingIndicator.style.flexDirection = 'column';
+  loadingIndicator.style.alignItems = 'center';
+  loadingIndicator.style.justifyContent = 'center';
+  loadingIndicator.style.zIndex = '10000';
+  loadingIndicator.innerHTML = `
+    <div style="width: 40px; height: 40px; border: 3px solid #f3f3f3; 
+                border-top: 3px solid #3498db; border-radius: 50%; 
+                animation: spin 1s linear infinite;"></div>
+    <p style="margin-top: 10px; font-family: sans-serif;">Generating PDF...</p>
+    <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); }}</style>
+  `;
+  document.body.appendChild(loadingIndicator);
+
+  try {
+    // Preload all images in the element before generating PDF
+    const images = element.querySelectorAll('img');
+    
+    // Force all images to load completely - critical step
+    await Promise.all(Array.from(images).map(img => 
+      new Promise((resolve) => {
+        // Make sure image has crossOrigin set
+        img.crossOrigin = 'anonymous';
+        
+        // If image is already loaded, resolve immediately
+        if (img.complete) {
+          resolve(null);
+        } else {
+          // Set up load and error handlers
+          img.onload = () => resolve(null);
+          img.onerror = () => {
+            console.warn('Image failed to load:', img.src);
+            resolve(null);
+          };
+          
+          // For Next.js Image components, ensure unoptimized and priority are set
+          img.setAttribute('unoptimized', 'true');
+          img.setAttribute('priority', 'true');
+        }
+      })
+    ));
+    
+    // Additional wait time for images to fully render
+    await new Promise(resolve => setTimeout(resolve, 3000));
 
     // Store original element dimensions and styles
     const originalWidth = element.style.width;
@@ -47,53 +91,25 @@ export const downloadComponentAsPdf = async (element: HTMLElement, filename: str
     element.style.zIndex = '1';
     element.style.opacity = '1';
 
-    // Create a clone of the element in a better positioned container for capture
-    const container = document.createElement('div');
-    container.style.position = 'fixed';
-    container.style.left = '-9999px';
-    container.style.top = '0';
-    container.style.width = '520px';
-    container.style.height = 'auto';
-    container.style.backgroundColor = '#ffffff';
-    container.style.padding = '0';
-    container.style.margin = '0';
-    container.style.overflow = 'hidden';
-    
-    const clone = element.cloneNode(true) as HTMLElement;
-    container.appendChild(clone);
-    document.body.appendChild(container);
-
-    // Force all images to load and be fully rendered
-    const images = container.querySelectorAll('img');
-    await Promise.all(Array.from(images).map(img => 
-      new Promise((resolve, reject) => {
-        if (img.complete) {
-          resolve(img);
-        } else {
-          img.onload = () => resolve(img);
-          img.onerror = reject;
-          // Make sure src is absolute URL
-          if (img.src.startsWith('/')) {
-            img.src = window.location.origin + img.src;
-          }
-        }
-      })
-    ));
-
     // Capture options with higher quality
     const options = {
       scale: 3, // Higher scale for better quality
       useCORS: true,
       allowTaint: true,
-      logging: false,
       backgroundColor: '#ffffff',
-      imageTimeout: 5000, // Longer timeout for images
+      imageTimeout: 15000, // Longer timeout for images
+      logging: true, // Enable logging to debug image issues
+      onclone: (clonedDoc: Document) => {
+        const clonedImages = clonedDoc.querySelectorAll('img');
+        clonedImages.forEach(img => {
+          img.crossOrigin = 'anonymous';
+          img.setAttribute('unoptimized', 'true');
+        });
+      }
     };
 
-    const canvas = await html2canvas(clone, options);
-    
-    // Clean up temp elements
-    document.body.removeChild(container);
+    // Generate canvas
+    const canvas = await html2canvas(element, options);
     
     // Restore original element properties
     element.style.width = originalWidth;
@@ -159,18 +175,51 @@ export const downloadComponentAsPdf = async (element: HTMLElement, filename: str
     // Save the PDF
     pdf.save(filename);
 
-    // Remove loading indicator
-    document.body.removeChild(loadingIndicator);
+    // Clean up - remove all loading indicators and notifications
+    removeAllNotifications();
 
   } catch (error) {
     console.error('Error generating PDF:', error);
     
-    // Try to remove loading indicator if it exists
-    const loadingIndicator = document.querySelector('div[style*="position: fixed"][style*="zIndex: 10000"]');
-    if (loadingIndicator && loadingIndicator.parentNode) {
-      loadingIndicator.parentNode.removeChild(loadingIndicator);
-    }
+    // Clean up - remove all loading indicators and notifications
+    removeAllNotifications();
     
-    alert('Error generating PDF. Please try again or check browser console for details.');
+    // Show error alert
+    alert('Error generating PDF. Please try again.');
   }
-}; 
+};
+
+// Helper function to remove all notifications and loading indicators
+function removeAllNotifications() {
+  // Remove loading indicator by ID
+  const loadingIndicator = document.getElementById('pdf-loading-indicator');
+  if (loadingIndicator) {
+    document.body.removeChild(loadingIndicator);
+  }
+  
+  // Remove any other loading indicators by style
+  const otherLoadingIndicators = document.querySelectorAll('div[style*="position: fixed"][style*="zIndex: 10000"]');
+  otherLoadingIndicators.forEach(indicator => {
+    if (indicator.parentNode) {
+      indicator.parentNode.removeChild(indicator);
+    }
+  });
+  
+  // Remove notifications by style
+  const notifications = document.querySelectorAll('div[style*="position: fixed"][style*="zIndex: 9999"]');
+  notifications.forEach(notification => {
+    if (notification.parentNode) {
+      notification.parentNode.removeChild(notification);
+    }
+  });
+  
+  // Look for elements with text "Preparing PDF"
+  const preparingElements = Array.from(document.querySelectorAll('div')).filter(el => 
+    el.innerText && el.innerText.includes('Preparing PDF')
+  );
+  preparingElements.forEach(el => {
+    if (el.parentNode) {
+      el.parentNode.removeChild(el);
+    }
+  });
+} 

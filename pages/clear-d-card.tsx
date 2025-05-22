@@ -91,12 +91,72 @@ const ClearDCardPage: NextPage<ClearDCardPageProps> = ({
     }
   };
 
-  const handleDownloadCard = (index: number, cardNo: string) => {
+  const handleDownloadCard = async (index: number, cardNo: string) => {
     const cardElement = cardRefs.current[index]?.current;
     if (cardElement) {
-      const fullName = userData?.name || 'User';
-      const filename = `${fullName}_${cardNo}.pdf`;
-      downloadComponentAsPdf(cardElement, filename);
+      try {
+        // Remove any existing notifications that might be lingering
+        const existingNotifications = document.querySelectorAll('div[style*="position: fixed"]');
+        existingNotifications.forEach(notification => {
+          if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+          }
+        });
+        
+        // Notify user through component state
+        setMessage('Preparing your PDF. Please wait while we process the images...');
+        
+        // Ensure all images in the card are fully loaded before proceeding
+        const images = cardElement.querySelectorAll('img');
+        await Promise.all(Array.from(images).map(img => 
+          new Promise((resolve) => {
+            if (img.complete) {
+              resolve(null);
+            } else {
+              img.onload = () => resolve(null);
+              img.onerror = () => resolve(null);
+              
+              // Force image attributes for better PDF handling
+              img.crossOrigin = 'anonymous';
+              img.setAttribute('unoptimized', 'true');
+              img.setAttribute('priority', 'true');
+            }
+          })
+        ));
+        
+        // Additional wait time for better rendering
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        // Prepare and sanitize filename
+        const fullName = userData?.name || 'User';
+        const sanitizedName = fullName.replace(/[^a-zA-Z0-9_.-]/g, '_');
+        const filename = `${sanitizedName}_${cardNo}_CLEAR-D.pdf`;
+        
+        // Call the PDF generation utility with a temporary await
+        await downloadComponentAsPdf(cardElement, filename);
+        
+        // Only set success message if no errors occurred
+        setMessage('PDF downloaded successfully!');
+        
+        // Clear the success message after a few seconds
+        setTimeout(() => {
+          if (message === 'PDF downloaded successfully!') {
+            setMessage(null);
+          }
+        }, 3000);
+        
+      } catch (error) {
+        console.error('PDF download error:', error);
+        setMessage('Error creating PDF. Please try again.');
+        
+        // Ensure all notifications are removed in case of error
+        const remainingNotifications = document.querySelectorAll('div[style*="position: fixed"]');
+        remainingNotifications.forEach(notification => {
+          if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+          }
+        });
+      }
     }
   };
 
