@@ -46,10 +46,15 @@ export default async function handler(
       const skip = (pageNum - 1) * limitNum;
       
       // Execute query with pagination
-      const counselors = await Counselor.find(query)
+      let counselorsQuery = Counselor.find(query)
         .sort({ state: 1, name: 1 })
-        .skip(skip)
-        .limit(limitNum);
+        .skip(skip);
+
+      if (limitNum > 0) {
+        counselorsQuery = counselorsQuery.limit(limitNum);
+      }
+      
+      const counselors = await counselorsQuery;
       
       // Get total count for pagination
       const totalCount = await Counselor.countDocuments(query);
@@ -77,8 +82,35 @@ export default async function handler(
       console.error('Error fetching counselors:', error);
       res.status(500).json({ error: 'Failed to fetch counselors' });
     }
+  } else if (req.method === 'POST') {
+    try {
+      const { name, specialization, phone, email, hospital, hospitalId, description } = req.body;
+
+      if (!name || !specialization) {
+        return res.status(400).json({ error: 'Name and specialization are required fields for a new counselor' });
+      }
+
+      const newCounselor = new Counselor({
+        name,
+        specialization,
+        phone,
+        email,
+        hospital, // Store hospital name
+        hospitalId, // Store hospital ID for linking
+        description,
+      });
+
+      const savedCounselor = await newCounselor.save();
+      res.status(201).json({ success: true, data: savedCounselor });
+    } catch (error: any) {
+      console.error('Error creating counselor:', error);
+      if (error.name === 'ValidationError') {
+        return res.status(400).json({ error: error.message });
+      }
+      res.status(500).json({ error: 'Failed to create counselor' });
+    }
   } else {
-    res.setHeader('Allow', ['GET']);
+    res.setHeader('Allow', ['GET', 'POST']);
     res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 } 

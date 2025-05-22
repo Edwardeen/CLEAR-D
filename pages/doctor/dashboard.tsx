@@ -64,6 +64,34 @@ interface Question {
   _id?: string;
 }
 
+// Define interfaces for Hospitals and Counselors
+interface Hospital {
+  _id?: string;
+  name: string;
+  type: string; // e.g., "Swasta", "Kerajaan"
+  state: string; // e.g., "Wilayah Persekutuan Kuala Lumpur"
+  address: string;
+  specialists: string[];
+  services: string[];
+  google_maps_link?: string;
+  // Optional fields that were in the previous UI, we can decide if they map to description or are separate
+  phone?: string; // This might be part of general contact or a specific field if available
+  email?: string;
+  website?: string;
+  description?: string; // This can be used for additional notes if not covered by other fields
+}
+
+interface Counselor {
+  _id?: string;
+  name: string;
+  specialization: string;
+  phone?: string;
+  email?: string;
+  hospital?: string;
+  hospitalId?: string;
+  description?: string;
+}
+
 interface DoctorDashboardProps {
   initialAssessments: PopulatedAssessment[];
   totalAssessments: number;
@@ -127,7 +155,9 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
   const [sortOrder, setSortOrder] = useState<SortOrder | null>(initialSortOrder);
 
   // State for tab selection
-  const [activeTab, setActiveTab] = useState<'assessments' | 'illnesses' | 'overview'>('overview'); // Removed 'allUserAssessments'
+  const [activeTab, setActiveTab] = useState<'assessments' | 'illnesses' | 'overview' | 'hospitals' | 'counselors'>('overview'); // Added 'hospitals' and 'counselors'
+  
+  // State for trend granularity
   const [trendGranularity, setTrendGranularity] = useState<'weekly' | 'monthly'>('weekly'); // New state for toggling
   
   // Additional state for combined assessments section
@@ -148,6 +178,42 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
   const [showEditIllnessForm, setShowEditIllnessForm] = useState<boolean>(false);
   // State for the edit illness form data
   const [editIllnessFormData, setEditIllnessFormData] = useState<{ name: string; description: string }>({ name: '', description: '' });
+
+  // State for hospitals management
+  const [hospitals, setHospitals] = useState<Hospital[]>([]);
+  const [loadingHospitals, setLoadingHospitals] = useState<boolean>(false);
+  const [showNewHospitalForm, setShowNewHospitalForm] = useState<boolean>(false);
+  const [showEditHospitalForm, setShowEditHospitalForm] = useState<boolean>(false);
+  const [editingHospital, setEditingHospital] = useState<Hospital | null>(null);
+  const [newHospital, setNewHospital] = useState<Hospital>({
+    name: '',
+    type: '',
+    state: '',
+    address: '',
+    specialists: [],
+    services: [],
+    google_maps_link: '',
+    phone: '', // Retaining for now, can be mapped or removed based on final schema decision
+    email: '',
+    website: '',
+    description: ''
+  });
+
+  // State for counselors management
+  const [counselors, setCounselors] = useState<Counselor[]>([]);
+  const [loadingCounselors, setLoadingCounselors] = useState<boolean>(false);
+  const [showNewCounselorForm, setShowNewCounselorForm] = useState<boolean>(false);
+  const [showEditCounselorForm, setShowEditCounselorForm] = useState<boolean>(false);
+  const [editingCounselor, setEditingCounselor] = useState<Counselor | null>(null);
+  const [newCounselor, setNewCounselor] = useState<Counselor>({
+    name: '',
+    specialization: '',
+    phone: '',
+    email: '',
+    hospital: '',
+    hospitalId: '',
+    description: ''
+  });
 
   // New illness form state
   const [newIllness, setNewIllness] = useState<{
@@ -222,6 +288,57 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
         fetchIllnesses();
     }
   }, [session, fetchIllnesses]);
+
+  // Fetch hospitals data
+  const fetchHospitals = useCallback(async () => {
+    setLoadingHospitals(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/hospitals?limit=0'); // Fetch all hospitals
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to fetch hospitals' }));
+        throw new Error(errorData.message || `Failed to fetch hospitals: ${response.status}`);
+      }
+      const data = await response.json();
+      setHospitals(Array.isArray(data.hospitals) ? [...data.hospitals] : []); // Ensure new array reference
+    } catch (error: any) {
+      console.error('Error fetching hospitals:', error);
+      setError(error.message || 'Failed to load hospitals');
+    } finally {
+      setLoadingHospitals(false);
+    }
+  }, []);
+
+  // Fetch counselors data
+  const fetchCounselors = useCallback(async () => {
+    setLoadingCounselors(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/counselors?limit=0'); // Fetch all counselors
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to fetch counselors' }));
+        throw new Error(errorData.message || `Failed to fetch counselors: ${response.status}`);
+      }
+      const data = await response.json();
+      setCounselors(Array.isArray(data.counselors) ? [...data.counselors] : []); // Ensure new array reference
+    } catch (error: any) {
+      console.error('Error fetching counselors:', error);
+      setError(error.message || 'Failed to load counselors');
+    } finally {
+      setLoadingCounselors(false);
+    }
+  }, []);
+
+  // Load hospitals and counselors when the respective tabs are selected
+  useEffect(() => {
+    if (activeTab === 'hospitals' && session?.user?.role === 'doctor') {
+      fetchHospitals();
+    } else if (activeTab === 'counselors' && session?.user?.role === 'doctor') {
+      fetchCounselors();
+      // Also fetch hospitals for the dropdown
+      fetchHospitals();
+    }
+  }, [activeTab, session, fetchHospitals, fetchCounselors]);
 
   // Load assessments when component mounts
   // useEffect(() => { // THIS BLOCK IS COMMENTED OUT
@@ -767,6 +884,263 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
     }
   };
 
+  // Handle adding a hospital
+  const handleAddHospital = async () => {
+    if (!newHospital.name || !newHospital.type || !newHospital.state || !newHospital.address) {
+      setError('Hospital name, type, state, and address are required.');
+      return;
+    }
+
+    setLoadingHospitals(true);
+    try {
+      const payload = {
+        ...newHospital,
+        // Ensure specialists and services are arrays of strings, even if input is empty
+        specialists: Array.isArray(newHospital.specialists) ? newHospital.specialists.filter(s => s.trim() !== '') : [],
+        services: Array.isArray(newHospital.services) ? newHospital.services.filter(s => s.trim() !== '') : [],
+      };
+
+      const response = await fetch('/api/hospitals', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Error adding hospital' }));
+        throw new Error(errorData.message || `Failed to add hospital: ${response.status}`);
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        // Refresh the hospitals list
+        await fetchHospitals();
+        // Reset the form
+        setNewHospital({
+          name: '',
+          type: '',
+          state: '',
+          address: '',
+          specialists: [],
+          services: [],
+          google_maps_link: '',
+          phone: '',
+          email: '',
+          website: '',
+          description: ''
+        });
+        setShowNewHospitalForm(false);
+        setError(null);
+      } else {
+        throw new Error(result.message || 'Failed to add hospital due to server error.');
+      }
+    } catch (error: any) {
+      console.error('Error adding hospital:', error);
+      setError(error.message || 'Could not add hospital.');
+    } finally {
+      setLoadingHospitals(false);
+    }
+  };
+
+  // Handle updating a hospital
+  const handleUpdateHospital = async () => {
+    if (!editingHospital || !editingHospital._id) {
+      setError('No hospital selected for update or ID is missing.');
+      return;
+    }
+
+    if (!editingHospital.name || !editingHospital.type || !editingHospital.state || !editingHospital.address) {
+      setError('Hospital name, type, state, and address are required.');
+      return;
+    }
+
+    setLoadingHospitals(true);
+    try {
+      const payload = {
+        ...editingHospital,
+        specialists: Array.isArray(editingHospital.specialists) ? editingHospital.specialists.filter(s => s.trim() !== '') : [],
+        services: Array.isArray(editingHospital.services) ? editingHospital.services.filter(s => s.trim() !== '') : [],
+      };
+
+      const response = await fetch(`/api/hospitals/${editingHospital._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Error updating hospital' }));
+        throw new Error(errorData.message || `Failed to update hospital: ${response.status}`);
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        // Refresh the counselors list
+        await fetchCounselors();
+        setShowEditCounselorForm(false);
+        setEditingCounselor(null);
+        setError(null);
+      } else {
+        throw new Error(result.message || 'Failed to update hospital due to server error.');
+      }
+    } catch (error: any) {
+      console.error('Error updating hospital:', error);
+      setError(error.message || 'Could not update hospital.');
+    } finally {
+      setLoadingHospitals(false);
+    }
+  };
+
+  // Handle deleting a hospital
+  const handleDeleteHospital = async (hospitalId: string) => {
+    if (window.confirm('Are you sure you want to delete this hospital? This cannot be undone.')) {
+      setLoadingHospitals(true);
+      try {
+        const response = await fetch(`/api/hospitals/${hospitalId}`, {
+          method: 'DELETE',
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: 'Error deleting hospital' }));
+          throw new Error(errorData.message || `Failed to delete hospital: ${response.status}`);
+        }
+
+        // Refresh the hospitals list
+        await fetchHospitals();
+        setError(null);
+      } catch (error: any) {
+        console.error('Error deleting hospital:', error);
+        setError(error.message || 'Could not delete hospital.');
+      } finally {
+        setLoadingHospitals(false);
+      }
+    }
+  };
+
+  // Handle adding a counselor
+  const handleAddCounselor = async () => {
+    if (!newCounselor.name || !newCounselor.specialization) {
+      setError('Counselor name and specialization are required.');
+      return;
+    }
+
+    setLoadingCounselors(true);
+    try {
+      const response = await fetch('/api/counselors', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newCounselor),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Error adding counselor' }));
+        throw new Error(errorData.message || `Failed to add counselor: ${response.status}`);
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        // Refresh the counselors list
+        await fetchCounselors();
+        // Reset the form
+        setNewCounselor({
+          name: '',
+          specialization: '',
+          phone: '',
+          email: '',
+          hospital: '',
+          hospitalId: '',
+          description: ''
+        });
+        setShowNewCounselorForm(false);
+        setError(null);
+      } else {
+        throw new Error(result.message || 'Failed to add counselor due to server error.');
+      }
+    } catch (error: any) {
+      console.error('Error adding counselor:', error);
+      setError(error.message || 'Could not add counselor.');
+    } finally {
+      setLoadingCounselors(false);
+    }
+  };
+
+  // Handle updating a counselor
+  const handleUpdateCounselor = async () => {
+    if (!editingCounselor || !editingCounselor._id) {
+      setError('No counselor selected for update or ID is missing.');
+      return;
+    }
+
+    if (!editingCounselor.name || !editingCounselor.specialization) {
+      setError('Counselor name and specialization are required.');
+      return;
+    }
+
+    setLoadingCounselors(true);
+    try {
+      const response = await fetch(`/api/counselors/${editingCounselor._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(editingCounselor),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Error updating counselor' }));
+        throw new Error(errorData.message || `Failed to update counselor: ${response.status}`);
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        // Refresh the counselors list
+        await fetchCounselors();
+        setShowEditCounselorForm(false);
+        setEditingCounselor(null);
+        setError(null);
+      } else {
+        throw new Error(result.message || 'Failed to update counselor due to server error.');
+      }
+    } catch (error: any) {
+      console.error('Error updating counselor:', error);
+      setError(error.message || 'Could not update counselor.');
+    } finally {
+      setLoadingCounselors(false);
+    }
+  };
+
+  // Handle deleting a counselor
+  const handleDeleteCounselor = async (counselorId: string) => {
+    if (window.confirm('Are you sure you want to delete this counselor? This cannot be undone.')) {
+      setLoadingCounselors(true);
+      try {
+        const response = await fetch(`/api/counselors/${counselorId}`, {
+          method: 'DELETE',
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: 'Error deleting counselor' }));
+          throw new Error(errorData.message || `Failed to delete counselor: ${response.status}`);
+        }
+
+        // Refresh the counselors list
+        await fetchCounselors();
+        setError(null);
+      } catch (error: any) {
+        console.error('Error deleting counselor:', error);
+        setError(error.message || 'Could not delete counselor.');
+      } finally {
+        setLoadingCounselors(false);
+      }
+    }
+  };
+
   // Handle adding/editing a question
   const handleSaveQuestion = async () => {
     try {
@@ -915,8 +1289,8 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
   // JSX for rendering tabs
   const renderTabs = () => (
       <div className="mb-6 border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-        {(['overview', 'assessments', 'illnesses'] as const).map((tabKey) => ( // Removed 'allUserAssessments'
+        <nav className="-mb-px flex flex-wrap space-x-8" aria-label="Tabs"> {/* Added flex-wrap */}
+        {(['overview', 'assessments', 'illnesses', 'hospitals', 'counselors'] as const).map((tabKey) => ( // Added 'hospitals' and 'counselors'
             <button
             key={tabKey}
             onClick={() => setActiveTab(tabKey)}
@@ -929,6 +1303,8 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
             {tabKey === 'overview' && 'Overview & Trends'}
             {tabKey === 'assessments' && 'Patient Assessments'} {/* Renamed to just "Patient Assessments" */}
             {tabKey === 'illnesses' && 'Manage Illnesses'}
+            {tabKey === 'hospitals' && 'Manage Hospitals'}
+            {tabKey === 'counselors' && 'Manage Counselors'}
             </button>
           ))}
         </nav>
@@ -1879,6 +2255,839 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
             )}
                     </div>
         );
+      case 'hospitals':
+        return (
+          <div>
+            <h2 className="text-2xl font-semibold text-gray-800 mb-6">Manage Hospitals</h2>
+            
+            {/* Error message */}
+            {error && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+                <strong className="font-bold">Error: </strong>
+                <span className="block sm:inline">{error}</span>
+              </div>
+            )}
+            
+            {/* Add Hospital Button */}
+            <div className="mb-6 flex justify-end">
+              <button
+                onClick={() => setShowNewHospitalForm(true)}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                </svg>
+                Add New Hospital
+              </button>
+            </div>
+            
+            {/* Loading state */}
+            {loadingHospitals && (
+              <div className="flex justify-center items-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+                <p className="ml-2 text-gray-600">Loading hospitals...</p>
+              </div>
+            )}
+            
+            {/* No hospitals state */}
+            {!loadingHospitals && hospitals.length === 0 && (
+              <div className="bg-white p-6 rounded-lg shadow-md text-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                <h3 className="mt-2 text-sm font-medium text-gray-900">No hospitals found</h3>
+                <p className="mt-1 text-sm text-gray-500">Get started by creating a new hospital.</p>
+                <div className="mt-6">
+                  <button
+                    onClick={() => setShowNewHospitalForm(true)}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                    </svg>
+                    Add Hospital
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            {/* Hospitals list - Changed to card layout */}
+            {!loadingHospitals && hospitals.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {hospitals.map((hospital) => (
+                  <div key={hospital._id} className="bg-white shadow-lg rounded-lg p-6 hover:shadow-xl transition-shadow duration-300 ease-in-out">
+                    <div className="flex justify-between items-start mb-2">
+                      <h4 className="text-lg font-semibold text-indigo-700 mr-2">{hospital.name}</h4>
+                      <span className={`px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${hospital.type === 'Swasta' ? 'bg-blue-100 text-blue-800' : hospital.type === 'Kerajaan' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                        {hospital.type}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-1">
+                      <span className="font-medium">State:</span> {hospital.state}
+                    </p>
+                    <p className="text-sm text-gray-600 mb-1">
+                      <span className="font-medium">Address:</span> {hospital.address}
+                    </p>
+                    {hospital.phone && (
+                      <p className="text-sm text-gray-600 mb-1">
+                        <span className="font-medium">Phone:</span> {hospital.phone}
+                      </p>
+                    )}
+                    {hospital.email && (
+                      <p className="text-sm text-gray-600 mb-1">
+                        <span className="font-medium">Email:</span> <a href={`mailto:${hospital.email}`} className="text-indigo-500 hover:underline">{hospital.email}</a>
+                      </p>
+                    )}
+                    {hospital.website && (
+                      <p className="text-sm text-gray-600 mb-1">
+                        <span className="font-medium">Website:</span> <a href={hospital.website.startsWith('http') ? hospital.website : `https://${hospital.website}`} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">{hospital.website}</a>
+                      </p>
+                    )}
+                    {hospital.google_maps_link && (
+                      <p className="text-sm text-gray-600 mb-3">
+                        <span className="font-medium">Map:</span> <a href={hospital.google_maps_link} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline">View on Google Maps</a>
+                      </p>
+                    )}
+                    {Array.isArray(hospital.specialists) && hospital.specialists.length > 0 && hospital.specialists.some(s => s.trim() !== '') && (
+                      <div className="mb-2">
+                        <p className="text-sm font-medium text-gray-700">Specialists:</p>
+                        <ul className="list-disc list-inside pl-2 text-sm text-gray-600">
+                          {hospital.specialists.filter(s => s.trim() !== '').map((spec, index) => <li key={index}>{spec}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                    {Array.isArray(hospital.services) && hospital.services.length > 0 && hospital.services.some(s => s.trim() !== '') && (
+                      <div className="mb-3">
+                        <p className="text-sm font-medium text-gray-700">Services:</p>
+                        <ul className="list-disc list-inside pl-2 text-sm text-gray-600">
+                          {hospital.services.filter(s => s.trim() !== '').map((serv, index) => <li key={index}>{serv}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                    {hospital.description && (
+                      <p className="text-sm text-gray-500 italic mb-4">{hospital.description}</p>
+                    )}
+                    <div className="mt-4 flex justify-end space-x-3">
+                      <button
+                        onClick={() => {
+                          setEditingHospital({
+                            ...hospital,
+                            specialists: Array.isArray(hospital.specialists) ? hospital.specialists : [],
+                            services: Array.isArray(hospital.services) ? hospital.services : [],
+                          });
+                          setShowEditHospitalForm(true);
+                        }}
+                        className="px-3 py-1 text-sm font-medium rounded-md text-indigo-600 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => hospital._id && handleDeleteHospital(hospital._id)}
+                        className="px-3 py-1 text-sm font-medium rounded-md text-red-600 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {/* Add Hospital Modal */}
+            {showNewHospitalForm && (
+              <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+                <div className="bg-white rounded-lg p-6 max-w-lg w-full">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Add New Hospital</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                        Hospital Name*
+                      </label>
+                      <input
+                        type="text"
+                        id="name"
+                        value={newHospital.name}
+                        onChange={(e) => setNewHospital({ ...newHospital, name: e.target.value })}
+                        className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                        placeholder="e.g., General Hospital"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="type" className="block text-sm font-medium text-gray-700">
+                        Type*
+                      </label>
+                      <input
+                        type="text"
+                        id="type"
+                        value={newHospital.type}
+                        onChange={(e) => setNewHospital({ ...newHospital, type: e.target.value })}
+                        className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                        placeholder="e.g., Swasta, Kerajaan"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="state" className="block text-sm font-medium text-gray-700">
+                        State*
+                      </label>
+                      <input
+                        type="text"
+                        id="state"
+                        value={newHospital.state}
+                        onChange={(e) => setNewHospital({ ...newHospital, state: e.target.value })}
+                        className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                        placeholder="e.g., Wilayah Persekutuan Kuala Lumpur"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="address" className="block text-sm font-medium text-gray-700">
+                        Address*
+                      </label>
+                      <input
+                        type="text"
+                        id="address"
+                        value={newHospital.address}
+                        onChange={(e) => setNewHospital({ ...newHospital, address: e.target.value })}
+                        className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                        placeholder="Full address"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
+                        Phone Number
+                      </label>
+                      <input
+                        type="text"
+                        id="phone"
+                        value={newHospital.phone || ''}
+                        onChange={(e) => setNewHospital({ ...newHospital, phone: e.target.value })}
+                        className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                        placeholder="e.g., +60 3-1234 5678"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        id="email"
+                        value={newHospital.email || ''}
+                        onChange={(e) => setNewHospital({ ...newHospital, email: e.target.value })}
+                        className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                        placeholder="contact@hospital.com"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="website" className="block text-sm font-medium text-gray-700">
+                        Website
+                      </label>
+                      <input
+                        type="text"
+                        id="website"
+                        value={newHospital.website || ''}
+                        onChange={(e) => setNewHospital({ ...newHospital, website: e.target.value })}
+                        className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                        placeholder="www.hospital.com"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="google_maps_link" className="block text-sm font-medium text-gray-700">
+                        Google Maps Link
+                      </label>
+                      <input
+                        type="url"
+                        id="google_maps_link"
+                        value={newHospital.google_maps_link || ''}
+                        onChange={(e) => setNewHospital({ ...newHospital, google_maps_link: e.target.value })}
+                        className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                        placeholder="https://maps.google.com/..."
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="specialists" className="block text-sm font-medium text-gray-700">
+                        Specialists (comma-separated)
+                      </label>
+                      <input
+                        type="text"
+                        id="specialists"
+                        value={newHospital.specialists.join(', ')}
+                        onChange={(e) => setNewHospital({ ...newHospital, specialists: e.target.value.split(',').map(s => s.trim()) })}
+                        className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                        placeholder="Dr. A, Dr. B"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="services" className="block text-sm font-medium text-gray-700">
+                        Services (comma-separated)
+                      </label>
+                      <input
+                        type="text"
+                        id="services"
+                        value={newHospital.services.join(', ')}
+                        onChange={(e) => setNewHospital({ ...newHospital, services: e.target.value.split(',').map(s => s.trim()) })}
+                        className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                        placeholder="Service X, Service Y"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-5 sm:mt-6 space-x-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowNewHospitalForm(false);
+                        setNewHospital({
+                          name: '',
+                          type: '',
+                          state: '',
+                          address: '',
+                          specialists: [],
+                          services: [],
+                          google_maps_link: '',
+                          phone: '',
+                          email: '',
+                          website: '',
+                          description: ''
+                        });
+                      }}
+                      className="inline-flex justify-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleAddHospital}
+                      disabled={loadingHospitals || !newHospital.name || !newHospital.address || !newHospital.phone}
+                      className="inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none disabled:opacity-50"
+                    >
+                      {loadingHospitals ? 'Adding...' : 'Add Hospital'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Edit Hospital Modal */}
+            {showEditHospitalForm && editingHospital && (
+              <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+                <div className="bg-white rounded-lg p-6 max-w-lg w-full">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Edit Hospital: {editingHospital.name}</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="edit-name" className="block text-sm font-medium text-gray-700">
+                        Hospital Name*
+                      </label>
+                      <input
+                        type="text"
+                        id="edit-name"
+                        value={editingHospital.name}
+                        onChange={(e) => setEditingHospital({ ...editingHospital, name: e.target.value })}
+                        className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                        required
+                      />
+                    </div>
+                     <div>
+                      <label htmlFor="edit-type" className="block text-sm font-medium text-gray-700">
+                        Type*
+                      </label>
+                      <input
+                        type="text"
+                        id="edit-type"
+                        value={editingHospital.type}
+                        onChange={(e) => setEditingHospital({ ...editingHospital, type: e.target.value })}
+                        className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="edit-state" className="block text-sm font-medium text-gray-700">
+                        State*
+                      </label>
+                      <input
+                        type="text"
+                        id="edit-state"
+                        value={editingHospital.state}
+                        onChange={(e) => setEditingHospital({ ...editingHospital, state: e.target.value })}
+                        className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="edit-address" className="block text-sm font-medium text-gray-700">
+                        Address*
+                      </label>
+                      <input
+                        type="text"
+                        id="edit-address"
+                        value={editingHospital.address}
+                        onChange={(e) => setEditingHospital({ ...editingHospital, address: e.target.value })}
+                        className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="edit-phone" className="block text-sm font-medium text-gray-700">
+                        Phone Number
+                      </label>
+                      <input
+                        type="text"
+                        id="edit-phone"
+                        value={editingHospital.phone || ''}
+                        onChange={(e) => setEditingHospital({ ...editingHospital, phone: e.target.value })}
+                        className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="edit-email" className="block text-sm font-medium text-gray-700">
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        id="edit-email"
+                        value={editingHospital.email || ''}
+                        onChange={(e) => setEditingHospital({ ...editingHospital, email: e.target.value })}
+                        className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="edit-website" className="block text-sm font-medium text-gray-700">
+                        Website
+                      </label>
+                      <input
+                        type="text"
+                        id="edit-website"
+                        value={editingHospital.website || ''}
+                        onChange={(e) => setEditingHospital({ ...editingHospital, website: e.target.value })}
+                        className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="edit-google_maps_link" className="block text-sm font-medium text-gray-700">
+                        Google Maps Link
+                      </label>
+                      <input
+                        type="url"
+                        id="edit-google_maps_link"
+                        value={editingHospital.google_maps_link || ''}
+                        onChange={(e) => setEditingHospital({ ...editingHospital, google_maps_link: e.target.value })}
+                        className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="edit-specialists" className="block text-sm font-medium text-gray-700">
+                        Specialists (comma-separated)
+                      </label>
+                      <input
+                        type="text"
+                        id="edit-specialists"
+                        value={Array.isArray(editingHospital.specialists) ? editingHospital.specialists.join(', ') : ''}
+                        onChange={(e) => setEditingHospital({ ...editingHospital, specialists: e.target.value.split(',').map(s => s.trim()) })}
+                        className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="edit-services" className="block text-sm font-medium text-gray-700">
+                        Services (comma-separated)
+                      </label>
+                      <input
+                        type="text"
+                        id="edit-services"
+                        value={Array.isArray(editingHospital.services) ? editingHospital.services.join(', ') : ''}
+                        onChange={(e) => setEditingHospital({ ...editingHospital, services: e.target.value.split(',').map(s => s.trim()) })}
+                        className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-5 sm:mt-6 space-x-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowEditHospitalForm(false);
+                        setEditingHospital(null);
+                      }}
+                      className="inline-flex justify-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleUpdateHospital}
+                      disabled={loadingHospitals || !editingHospital.name || !editingHospital.address || !editingHospital.phone}
+                      className="inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none disabled:opacity-50"
+                    >
+                      {loadingHospitals ? 'Saving...' : 'Save Changes'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+
+      case 'counselors':
+        return (
+          <div>
+            <h2 className="text-2xl font-semibold text-gray-800 mb-6">Manage Counselors</h2>
+            
+            {/* Error message */}
+            {error && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+                <strong className="font-bold">Error: </strong>
+                <span className="block sm:inline">{error}</span>
+              </div>
+            )}
+            
+            {/* Add Counselor Button */}
+            <div className="mb-6 flex justify-end">
+              <button
+                onClick={() => setShowNewCounselorForm(true)}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                </svg>
+                Add New Counselor
+              </button>
+            </div>
+            
+            {/* Loading state */}
+            {loadingCounselors && (
+              <div className="flex justify-center items-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+                <p className="ml-2 text-gray-600">Loading counselors...</p>
+              </div>
+            )}
+            
+            {/* No counselors state */}
+            {!loadingCounselors && counselors.length === 0 && (
+              <div className="bg-white p-6 rounded-lg shadow-md text-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <h3 className="mt-2 text-sm font-medium text-gray-900">No counselors found</h3>
+                <p className="mt-1 text-sm text-gray-500">Get started by creating a new counselor.</p>
+                <div className="mt-6">
+                  <button
+                    onClick={() => setShowNewCounselorForm(true)}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                    </svg>
+                    Add Counselor
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            {/* Counselors list as cards */}
+            {!loadingCounselors && counselors.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {counselors.map((counselor) => (
+                  <div key={counselor._id} className="bg-white shadow-lg rounded-lg p-6 hover:shadow-xl transition-shadow duration-300 ease-in-out">
+                    <div className="flex justify-between items-start mb-2">
+                      <h4 className="text-lg font-semibold text-indigo-700 mr-2">{counselor.name}</h4>
+                      <span className="px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                        {counselor.specialization}
+                      </span>
+                    </div>
+                    
+                    {counselor.hospital && (
+                      <p className="text-sm text-gray-600 mb-1">
+                        <span className="font-medium">Hospital:</span> {counselor.hospital}
+                      </p>
+                    )}
+                    
+                    {counselor.phone && (
+                      <p className="text-sm text-gray-600 mb-1">
+                        <span className="font-medium">Phone:</span> {counselor.phone}
+                      </p>
+                    )}
+                    
+                    {counselor.email && (
+                      <p className="text-sm text-gray-600 mb-3">
+                        <span className="font-medium">Email:</span> <a href={`mailto:${counselor.email}`} className="text-indigo-500 hover:underline">{counselor.email}</a>
+                      </p>
+                    )}
+                    
+                    {counselor.description && (
+                      <p className="text-sm text-gray-500 italic mb-4">{counselor.description}</p>
+                    )}
+                    
+                    <div className="mt-4 flex justify-end space-x-3">
+                      <button
+                        onClick={() => {
+                          setEditingCounselor(counselor);
+                          setShowEditCounselorForm(true);
+                        }}
+                        className="px-3 py-1 text-sm font-medium rounded-md text-indigo-600 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => counselor._id && handleDeleteCounselor(counselor._id)}
+                        className="px-3 py-1 text-sm font-medium rounded-md text-red-600 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {/* Add Counselor Modal */}
+            {showNewCounselorForm && (
+              <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+                <div className="bg-white rounded-lg p-6 max-w-lg w-full">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Add New Counselor</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="counselor-name" className="block text-sm font-medium text-gray-700">
+                        Name*
+                      </label>
+                      <input
+                        type="text"
+                        id="counselor-name"
+                        value={newCounselor.name}
+                        onChange={(e) => setNewCounselor({ ...newCounselor, name: e.target.value })}
+                        className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                        placeholder="Full name"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="specialization" className="block text-sm font-medium text-gray-700">
+                        Specialization*
+                      </label>
+                      <input
+                        type="text"
+                        id="specialization"
+                        value={newCounselor.specialization}
+                        onChange={(e) => setNewCounselor({ ...newCounselor, specialization: e.target.value })}
+                        className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                        placeholder="e.g., Psychiatrist, Ophthalmologist"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="hospital" className="block text-sm font-medium text-gray-700">
+                        Hospital
+                      </label>
+                      <select
+                        id="hospital"
+                        value={newCounselor.hospitalId || ''}
+                        onChange={(e) => {
+                          const hospitalId = e.target.value;
+                          const selectedHospital = hospitals.find(h => h._id === hospitalId);
+                          setNewCounselor({
+                            ...newCounselor,
+                            hospitalId: hospitalId,
+                            hospital: selectedHospital ? selectedHospital.name : ''
+                          });
+                        }}
+                        className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                      >
+                        <option value="">Select a hospital</option>
+                        {hospitals.map((hospital) => (
+                          <option key={hospital._id} value={hospital._id || ''}>
+                            {hospital.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label htmlFor="counselor-phone" className="block text-sm font-medium text-gray-700">
+                        Phone Number
+                      </label>
+                      <input
+                        type="text"
+                        id="counselor-phone"
+                        value={newCounselor.phone}
+                        onChange={(e) => setNewCounselor({ ...newCounselor, phone: e.target.value })}
+                        className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                        placeholder="e.g., +1 (555) 123-4567"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="counselor-email" className="block text-sm font-medium text-gray-700">
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        id="counselor-email"
+                        value={newCounselor.email}
+                        onChange={(e) => setNewCounselor({ ...newCounselor, email: e.target.value })}
+                        className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                        placeholder="email@example.com"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="counselor-description" className="block text-sm font-medium text-gray-700">
+                        Description
+                      </label>
+                      <textarea
+                        id="counselor-description"
+                        value={newCounselor.description}
+                        onChange={(e) => setNewCounselor({ ...newCounselor, description: e.target.value })}
+                        rows={3}
+                        className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                        placeholder="Brief description of the counselor..."
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-5 sm:mt-6 space-x-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowNewCounselorForm(false);
+                        setNewCounselor({
+                          name: '',
+                          specialization: '',
+                          phone: '',
+                          email: '',
+                          hospital: '',
+                          hospitalId: '',
+                          description: ''
+                        });
+                      }}
+                      className="inline-flex justify-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleAddCounselor}
+                      disabled={loadingCounselors || !newCounselor.name || !newCounselor.specialization}
+                      className="inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none disabled:opacity-50"
+                    >
+                      {loadingCounselors ? 'Adding...' : 'Add Counselor'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Edit Counselor Modal */}
+            {showEditCounselorForm && editingCounselor && (
+              <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+                <div className="bg-white rounded-lg p-6 max-w-lg w-full">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Edit Counselor: {editingCounselor.name}</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="edit-counselor-name" className="block text-sm font-medium text-gray-700">
+                        Name*
+                      </label>
+                      <input
+                        type="text"
+                        id="edit-counselor-name"
+                        value={editingCounselor.name}
+                        onChange={(e) => setEditingCounselor({ ...editingCounselor, name: e.target.value })}
+                        className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="edit-specialization" className="block text-sm font-medium text-gray-700">
+                        Specialization*
+                      </label>
+                      <input
+                        type="text"
+                        id="edit-specialization"
+                        value={editingCounselor.specialization}
+                        onChange={(e) => setEditingCounselor({ ...editingCounselor, specialization: e.target.value })}
+                        className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="edit-hospital" className="block text-sm font-medium text-gray-700">
+                        Hospital
+                      </label>
+                      <select
+                        id="edit-hospital"
+                        value={editingCounselor.hospitalId || ''}
+                        onChange={(e) => {
+                          const hospitalId = e.target.value;
+                          const selectedHospital = hospitals.find(h => h._id === hospitalId);
+                          setEditingCounselor({
+                            ...editingCounselor,
+                            hospitalId: hospitalId,
+                            hospital: selectedHospital ? selectedHospital.name : ''
+                          });
+                        }}
+                        className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                      >
+                        <option value="">Select a hospital</option>
+                        {hospitals.map((hospital) => (
+                          <option key={hospital._id} value={hospital._id || ''}>
+                            {hospital.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label htmlFor="edit-counselor-phone" className="block text-sm font-medium text-gray-700">
+                        Phone Number
+                      </label>
+                      <input
+                        type="text"
+                        id="edit-counselor-phone"
+                        value={editingCounselor.phone}
+                        onChange={(e) => setEditingCounselor({ ...editingCounselor, phone: e.target.value })}
+                        className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="edit-counselor-email" className="block text-sm font-medium text-gray-700">
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        id="edit-counselor-email"
+                        value={editingCounselor.email}
+                        onChange={(e) => setEditingCounselor({ ...editingCounselor, email: e.target.value })}
+                        className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="edit-counselor-description" className="block text-sm font-medium text-gray-700">
+                        Description
+                      </label>
+                      <textarea
+                        id="edit-counselor-description"
+                        value={editingCounselor.description}
+                        onChange={(e) => setEditingCounselor({ ...editingCounselor, description: e.target.value })}
+                        rows={3}
+                        className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-5 sm:mt-6 space-x-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowEditCounselorForm(false);
+                        setEditingCounselor(null);
+                      }}
+                      className="inline-flex justify-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleUpdateCounselor}
+                      disabled={loadingCounselors || !editingCounselor.name || !editingCounselor.specialization}
+                      className="inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none disabled:opacity-50"
+                    >
+                      {loadingCounselors ? 'Saving...' : 'Save Changes'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+
       default:
         return null;
     }

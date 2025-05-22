@@ -24,17 +24,6 @@ const UserProfileForm = ({ onUpdateSuccess }: UserProfileFormProps) => {
   const [isUploadingToCloudinary, setIsUploadingToCloudinary] = useState(false);
   const [photoMessage, setPhotoMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Function to refresh the session
-  const refreshSession = async () => {
-    try {
-      await updateSession();
-      return true;
-    } catch (error) {
-      console.error('Failed to refresh session:', error);
-      return false;
-    }
-  };
-
   useEffect(() => {
     if (status === 'authenticated' && session?.user?.id) {
       setIsFetching(true);
@@ -78,15 +67,6 @@ const UserProfileForm = ({ onUpdateSuccess }: UserProfileFormProps) => {
     setSelectedLocalFile(null);
     if(imagePreview) URL.revokeObjectURL(imagePreview);
     setImagePreview(null);
-
-    // First check if we have a valid session
-    if (!session || !session.user?.id) {
-      setPhotoMessage({
-        type: 'error', 
-        text: 'You must be logged in to upload a photo. Please refresh the page and try again.'
-      });
-      return;
-    }
 
     if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
         setPhotoMessage({type: 'error', text: "Cloudinary not configured. Cannot upload."}) 
@@ -162,59 +142,25 @@ const UserProfileForm = ({ onUpdateSuccess }: UserProfileFormProps) => {
 
       const res = await fetch('/api/users/me/photo', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          // No need to add Authorization header - session is handled via cookies
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ photoUrl: newPhotoUrl, photoPublicId: newPhotoPublicId }),
         credentials: 'include' // Ensure cookies are sent with the request
       });
 
       // Handle 401 errors specifically
       if (res.status === 401) {
-        // Try to refresh the session automatically
-        const refreshed = await refreshSession();
-        if (!refreshed) {
-          throw new Error('Unauthorized: Your session may have expired. Please refresh the page and try again.');
-        }
-        
-        // Try the request again with the refreshed session
-        const retryRes = await fetch('/api/users/me/photo', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ photoUrl: newPhotoUrl, photoPublicId: newPhotoPublicId }),
-          credentials: 'include'
-        });
-        
-        if (!retryRes.ok) {
-          throw new Error('Still unauthorized after session refresh. Please reload the page and try again.');
-        }
-        
-        return await retryRes.json();
-      }
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || `Failed to update profile with new photo (${res.status}).`);
+        throw new Error('Unauthorized: Your session may have expired. Please refresh the page and try again.');
       }
 
       const data = await res.json();
 
+      if (!res.ok) {
+        throw new Error(data.message || `Failed to update profile with new photo (${res.status}).`);
+      }
+
       setPhotoMessage({ type: 'success', text: 'Profile photo updated successfully!' });
       setFormData(prev => ({ ...prev, photoUrl: newPhotoUrl }));
-      
-      // Update the session with the new image
-      if (session && updateSession) {
-        await updateSession({ 
-          user: { 
-            ...session?.user, 
-            image: newPhotoUrl, 
-            photoUrl: newPhotoUrl 
-          } 
-        });
-      }
+      await updateSession({ user: { ...session?.user, image: newPhotoUrl, photoUrl: newPhotoUrl } });
       
       setSelectedLocalFile(null);
       if(fileInputElement) fileInputElement.value = ''; // Reset the file input
@@ -368,7 +314,7 @@ const UserProfileForm = ({ onUpdateSuccess }: UserProfileFormProps) => {
             )}
             
             {/* Add a more prominent error message for unauthorized errors */}
-            {photoMessage && photoMessage.type === 'error' && photoMessage.text.includes('session') && (
+            {photoMessage && photoMessage.type === 'error' && photoMessage.text.includes('Unauthorized') && (
               <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-md">
                 <p className="text-sm font-medium text-red-800">Session Error</p>
                 <p className="text-sm text-red-700">
@@ -427,7 +373,6 @@ const UserProfileForm = ({ onUpdateSuccess }: UserProfileFormProps) => {
         <label htmlFor="address.street" className="block text-sm font-medium text-gray-700">Address (Street)</label>
         <input type="text" name="address.street" id="address.street" value={getNestedValue(formData, 'address.street')} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
       </div>
-      
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div>
           <label htmlFor="address.city" className="block text-sm font-medium text-gray-700">City</label>
@@ -442,11 +387,10 @@ const UserProfileForm = ({ onUpdateSuccess }: UserProfileFormProps) => {
           <input type="text" name="address.postcode" id="address.postcode" value={getNestedValue(formData, 'address.postcode')} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
         </div>
       </div>
-      
-      <div>
-        <label htmlFor="address.country" className="block text-sm font-medium text-gray-700">Country</label>
-        <input type="text" name="address.country" id="address.country" value={getNestedValue(formData, 'address.country')} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
-      </div>
+       <div>
+          <label htmlFor="address.country" className="block text-sm font-medium text-gray-700">Country</label>
+          <input type="text" name="address.country" id="address.country" value={getNestedValue(formData, 'address.country')} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
+        </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
@@ -463,7 +407,7 @@ const UserProfileForm = ({ onUpdateSuccess }: UserProfileFormProps) => {
             <option value="Widowed">Widowed</option>
           </select>
         </div>
-        <div>
+         <div>
           <label htmlFor="race" className="block text-sm font-medium text-gray-700">Race</label>
           <input type="text" name="race" id="race" value={formData.race || ''} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
         </div>
@@ -503,7 +447,7 @@ const UserProfileForm = ({ onUpdateSuccess }: UserProfileFormProps) => {
           <label htmlFor="bloodType" className="block text-sm font-medium text-gray-700">Blood Type</label>
           <input type="text" name="bloodType" id="bloodType" value={formData.bloodType || ''} onChange={handleChange} placeholder="e.g., A+, O-" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
         </div>
-        <div>
+         <div>
           <label htmlFor="okuStatus" className="block text-sm font-medium text-gray-700">Status OKU</label>
           <select name="okuStatus" id="okuStatus" value={formData.okuStatus === undefined ? '' : String(formData.okuStatus)} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
             <option value="">Select</option>
@@ -523,8 +467,7 @@ const UserProfileForm = ({ onUpdateSuccess }: UserProfileFormProps) => {
         <textarea name="vaccinationHistory_simple" id="vaccinationHistory_simple" rows={3} placeholder="e.g., MMR - 2000, COVID-19 Pfizer - 2021, 2022" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"></textarea>
         <p className="text-xs text-gray-500 mt-1">Detailed vaccination history is a complex field; this is a simplified summary for now.</p>
       </div>
-      
-      <div>
+       <div>
         <label htmlFor="currentMedications_simple" className="block text-sm font-medium text-gray-700">Current Medications (Summary)</label>
         <textarea name="currentMedications_simple" id="currentMedications_simple" rows={3} placeholder="e.g., Metformin 500mg - daily, Aspirin 75mg - daily" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"></textarea>
         <p className="text-xs text-gray-500 mt-1">Detailed medication list is a complex field; this is a simplified summary for now.</p>
@@ -541,15 +484,14 @@ const UserProfileForm = ({ onUpdateSuccess }: UserProfileFormProps) => {
           <input type="text" name="insurance.company" id="insurance.company" value={getNestedValue(formData, 'insurance.company')} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
         </div>
       </div>
-      
-      <div>
-        <label htmlFor="hasDiabetes" className="block text-sm font-medium text-gray-700">Do you have Diabetes?</label>
-        <select name="hasDiabetes" id="hasDiabetes" value={formData.hasDiabetes === undefined ? '' : String(formData.hasDiabetes)} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-          <option value="">Select</option>
-          <option value="true">Yes</option>
-          <option value="false">No</option>
-        </select>
-      </div>
+        <div>
+          <label htmlFor="hasDiabetes" className="block text-sm font-medium text-gray-700">Do you have Diabetes?</label>
+          <select name="hasDiabetes" id="hasDiabetes" value={formData.hasDiabetes === undefined ? '' : String(formData.hasDiabetes)} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+            <option value="">Select</option>
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </select>
+        </div>
 
       {message && (
         <div className={`p-3 rounded-md text-sm ${message.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
@@ -560,7 +502,7 @@ const UserProfileForm = ({ onUpdateSuccess }: UserProfileFormProps) => {
       <div className="pt-5">
         <button 
           type="submit" 
-          disabled={isLoading || isUploadingToCloudinary}
+          disabled={isLoading || isUploadingToCloudinary} // Disable if main form is saving or image is processing
           className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
         >
           {isLoading ? 'Saving Profile...' : (isUploadingToCloudinary ? 'Processing Image...' : 'Save Profile')}

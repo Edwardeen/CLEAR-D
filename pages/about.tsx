@@ -127,7 +127,7 @@ const AboutPage: NextPage = () => {
                 with technological innovation, we aim to improve health outcomes through early detection and informed action.
               </p>
               <p>
-                CLEAR-D is not a diagnostic solution, but rather a risk assessment and awareness tool that complements regular 
+                CLEAR-D is an early diagnostic solution, it acts as a risk assessment and awareness tool that complements regular 
                 medical care. We bridge the gap between routine check-ups by providing users with personalized risk assessments, 
                 educational resources, and connections to specialized healthcare providers.
               </p>
@@ -155,11 +155,24 @@ const AboutPage: NextPage = () => {
               title="Senior Lecturer, Universiti Tenaga Nasional"
               description="Distinguished academic with 20+ years in business, marketing & leadership. Diploma in Business Studies (UiTM), BBA (Hons) in International Business, MBA in Marketing, and Ph.D. candidate at UMPSA. Senior Lecturer at UNITEN since 2010, specializing in service recovery, retailing, franchising & sustainability."
             />
-            
-            {/* Placeholder team members */}
-            <PlaceholderTeamCard />
-            <PlaceholderTeamCard />
-            <PlaceholderTeamCard />
+
+            <TeamMemberCard 
+              name="Maziah binti Mokhtar, CA(M)"
+              title="Lecturer and researcher, Accounting and Economics Department, Universiti Tenaga Nasional"
+              description="Maziah is a Chartered Accountant and PhD candidate specializing in Sustainability Reporting. She holds a Master of Accountancy from UiTM and  has practical experience in accounting, auditing, and financial management. She teaches various finance-related courses and is an active member of MIA, ASEAN CPA, MFPC, and ESG Malaysia."
+            />
+
+<TeamMemberCard 
+              name="Izzatul Ussna Ridzwan "
+              title="Lecturer and researcher, Accounting and Economics Department, Universiti Tenaga Nasional"
+              description="She holds a Master in Accountancy and a Bachelor of Accounting (Hons.) from UiTM, Malaysia. Her career includes secondments to UNITEN’s Intelligence and Strategy Management Centre and Yayasan Canselor UNITEN. She teaches a range of accounting and finance courses, conducts impactful research, and has received multiple research awards. A member of professional bodies such as ACFE and ESG Malaysia, she actively contributes to UNITEN’s academic and community initiatives."
+            />
+
+<TeamMemberCard 
+              name="Zurina Ismail"
+              title="Lecturer and researcher, Management Department, Universiti Tenaga Nasional"
+              description="Zurina Ismail is a lecturer and PhD candidate that focusing on smart grid awareness, energy sustainability, and human capital development. She also leads CSR and public affairs at Yayasan Canselor UNITEN. Her work supports education, community impact, and national energy goals through research, training, and stakeholder engagement."
+            />
           </div>
         </div>
       </section>
@@ -181,7 +194,7 @@ const AboutPage: NextPage = () => {
                     </div>
                   </div>
                   <h3 className="text-2xl font-bold text-gray-800">Edward Nathan Samuel</h3>
-                  <p className="text-blue-600 font-medium mb-4">Solo Developer</p>
+                  <p className="text-blue-600 font-medium mb-4">Full-Stack Developer and Data Scientist</p>
                   
                   <div className="flex space-x-3 mt-2">
                     <a href="https://github.com/Edwardeen" target="_blank" rel="noopener noreferrer" className="text-gray-700 hover:text-blue-600">

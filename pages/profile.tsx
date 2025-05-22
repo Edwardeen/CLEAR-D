@@ -184,13 +184,23 @@ const ProfilePage = () => {
       return;
     }
     setLoadingUserData(true);
+    setError(null); // Clear any previous errors
     try {
       const response = await fetch('/api/users/me');
-      if (!response.ok) throw new Error('Failed to fetch user data');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to fetch user data:', response.status, errorData);
+        throw new Error(`Failed to fetch user data: ${response.status}`);
+      }
       const data = await response.json();
-      setUserData(data.user || {});
+      if (data.user) {
+        setUserData(data.user || {});
+      } else {
+        throw new Error('No user data received from server');
+      }
     } catch (err: any) {
       console.error('Error fetching user data:', err.message);
+      setError(`Error loading profile: ${err.message}`);
     } finally {
       setLoadingUserData(false);
     }
@@ -401,6 +411,22 @@ const ProfilePage = () => {
       fetchUserData();
     }
   }, [status, fetchUserData]);
+  
+  // Add retry mechanism for profile loading
+  useEffect(() => {
+    let retryTimeout: NodeJS.Timeout;
+    
+    if (status === 'authenticated' && !userData.name && !loadingUserData && !error) {
+      console.log('Profile data missing, attempting retry...');
+      retryTimeout = setTimeout(() => {
+        fetchUserData();
+      }, 1500);
+    }
+    
+    return () => {
+      if (retryTimeout) clearTimeout(retryTimeout);
+    };
+  }, [status, userData, loadingUserData, error, fetchUserData]);
   
   // Effect for fetching card data (initial attempt)
   useEffect(() => {
@@ -651,7 +677,35 @@ const ProfilePage = () => {
 
           {isEditMode && (
             <div className="w-full max-w-2xl">
+              {error && (
+                <div className="bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
+                  <span className="block sm:inline">{error}</span>
+                  <button 
+                    onClick={() => fetchUserData()}
+                    className="mt-2 px-3 py-1 bg-red-100 text-red-800 rounded-md hover:bg-red-200"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
               <UserProfileForm onUpdateSuccess={handleProfileUpdateSuccess} />
+            </div>
+          )}
+          
+          {/* Show error state even in view mode */}
+          {!isEditMode && error && (
+            <div className="bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4 max-w-md mx-auto">
+              <strong className="font-bold">Error: </strong>
+              <span className="block sm:inline">{error}</span>
+              <button 
+                onClick={() => {
+                  setError(null);
+                  fetchUserData();
+                }}
+                className="mt-2 px-3 py-1 bg-red-100 text-red-800 rounded-md hover:bg-red-200"
+              >
+                Retry
+              </button>
             </div>
           )}
         </div>

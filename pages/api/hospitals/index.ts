@@ -44,10 +44,15 @@ export default async function handler(
       const skip = (pageNum - 1) * limitNum;
       
       // Execute query with pagination
-      const hospitals = await Hospital.find(query)
+      let hospitalsQuery = Hospital.find(query)
         .sort({ state: 1, name: 1 })
-        .skip(skip)
-        .limit(limitNum);
+        .skip(skip);
+
+      if (limitNum > 0) {
+        hospitalsQuery = hospitalsQuery.limit(limitNum);
+      }
+      
+      const hospitals = await hospitalsQuery;
       
       // Get total count for pagination
       const totalCount = await Hospital.countDocuments(query);
@@ -73,8 +78,39 @@ export default async function handler(
       console.error('Error fetching hospitals:', error);
       res.status(500).json({ error: 'Failed to fetch hospitals' });
     }
+  } else if (req.method === 'POST') {
+    try {
+      const { name, type, state, address, specialists, services, google_maps_link, phone, email, website, description } = req.body;
+
+      if (!name || !type || !state || !address) {
+        return res.status(400).json({ error: 'Name, type, state, and address are required fields for a new hospital' });
+      }
+
+      const newHospital = new Hospital({
+        name,
+        type,
+        state,
+        address,
+        specialists: specialists || [],
+        services: services || [],
+        google_maps_link,
+        phone,
+        email,
+        website,
+        description,
+      });
+
+      const savedHospital = await newHospital.save();
+      res.status(201).json({ success: true, data: savedHospital });
+    } catch (error: any) {
+      console.error('Error creating hospital:', error);
+      if (error.name === 'ValidationError') {
+        return res.status(400).json({ error: error.message });
+      }
+      res.status(500).json({ error: 'Failed to create hospital' });
+    }
   } else {
-    res.setHeader('Allow', ['GET']);
+    res.setHeader('Allow', ['GET', 'POST']);
     res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 } 
