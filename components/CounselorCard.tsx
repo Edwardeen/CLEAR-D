@@ -16,7 +16,7 @@ const CounselorCard: React.FC<CounselorCardProps> = ({ counselor, onClick }) => 
         <div className="flex justify-between items-start mb-3">
           <h3 className="text-lg font-semibold text-gray-800 line-clamp-2">{counselor.name}</h3>
           <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
-            counselor.type === 'Kerajaan' ? 'bg-green-100 text-green-800' : 
+            counselor.type === 'Government' ? 'bg-green-100 text-green-800' : 
             counselor.type === 'NGO' ? 'bg-purple-100 text-purple-800' : 
             counselor.type === 'Individual' ? 'bg-yellow-100 text-yellow-800' : 
             'bg-blue-100 text-blue-800'

@@ -195,7 +195,7 @@ const HospitalDetailsPage = ({ initialData, error }: HospitalDetailsProps) => {
             <div className="flex flex-col md:flex-row justify-between md:items-center mb-6">
               <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2 md:mb-0">{hospital.name}</h1>
               <span className={`inline-flex px-3 py-1 rounded-full text-sm font-medium self-start md:self-auto ${
-                hospital.type === 'Kerajaan' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
+                hospital.type === 'Government' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
               }`}>
                 {hospital.type}
               </span>

@@ -52,7 +52,7 @@ const HospitalCard: React.FC<HospitalCardProps> = ({ hospital, onClick }) => {
         <div className="flex justify-between items-start mb-3">
           <h3 className="text-lg font-semibold text-gray-800 line-clamp-2">{hospital.name}</h3>
           <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
-            hospital.type === 'Kerajaan' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
+            hospital.type === 'Government' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
           }`}>
             {hospital.type}
           </span>

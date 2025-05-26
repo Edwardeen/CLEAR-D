@@ -6,6 +6,11 @@ import { FiGithub, FiLinkedin, FiExternalLink, FiAward, FiCode, FiDatabase, FiCl
 import { useRouter } from 'next/router';
 import { useEffect } from 'react';
 import edward from '../public/edward.jpg';
+import izzatul from '../public/izzatul.jpg';
+import maziah from '../public/maziah.jpg';
+import zul from '../public/zul.jpg';
+import fara from '../public/fara.jpg';
+import zurina from '../public/zurina.jpg';
 
 // Helper component for section titles
 const SectionTitle: React.FC<{ title: string; subtitle?: string; className?: string }> = ({ title, subtitle, className }) => (
@@ -151,7 +156,7 @@ const AboutPage: NextPage = () => {
               name="Dr. Siti Fara Fadila Binti Abd Razak"
               title="Senior Lecturer and Researcher, Universiti Tenaga Nasional"
               description="Specializing in Islamic Finance & Waqf Financial Modelling. Ph.D. (2024), MBA in Finance, BSc (Hons) in International Financial Economics. Prolific researcher/consultant with multiple gold medals, two Best Woman Inventor&apos;s awards, and RM297,000 TNB Seeding Fund secured."
-              imageSrc="/placeholder-female1.jpg"
+              imageSrc={fara.src}
             />
             
             {/* Mohd Zulkeflee */}
@@ -159,28 +164,28 @@ const AboutPage: NextPage = () => {
               name="Mohd Zulkeflee Bin Abd Razak"
               title="Senior Lecturer and Researcher, Universiti Tenaga Nasional"
               description="Distinguished academic with 20+ years in business, marketing & leadership. Diploma in Business Studies (UiTM), BBA (Hons) in International Business, MBA in Marketing, and Ph.D. candidate at UMPSA. Senior Lecturer at UNITEN since 2010, specializing in service recovery, retailing, franchising & sustainability."
-              imageSrc="/placeholder-male1.jpg"
+              imageSrc={zul.src}
             />
 
             <TeamMemberCard 
               name="Maziah binti Mokhtar, CA(M)"
               title="Lecturer and Researcher, Accounting and Economics Department, Universiti Tenaga Nasional"
               description="Maziah is a Chartered Accountant and PhD candidate specializing in Sustainability Reporting. She holds a Master of Accountancy from UiTM and  has practical experience in accounting, auditing, and financial management. She teaches various finance-related courses and is an active member of MIA, ASEAN CPA, MFPC, and ESG Malaysia."
-              imageSrc="/placeholder-female2.jpg"
+              imageSrc={maziah.src}
             />
 
             <TeamMemberCard 
               name="Izzatul Ussna Ridzwan "
               title="Lecturer and Researcher, Accounting and Economics Department, Universiti Tenaga Nasional"
               description="She holds a Master in Accountancy and a Bachelor of Accounting (Hons.) from UiTM, Malaysia. Her career includes secondments to UNITEN's Intelligence and Strategy Management Centre and Yayasan Canselor UNITEN. She teaches a range of accounting and finance courses, conducts impactful research, and has received multiple research awards. A member of professional bodies such as ACFE and ESG Malaysia, she actively contributes to UNITEN's academic and community initiatives."
-              imageSrc="/placeholder-female3.jpg"
+              imageSrc={izzatul.src}
             />
 
             <TeamMemberCard 
               name="Zurina Ismail"
               title="Lecturer and Researcher, Management Department, Universiti Tenaga Nasional"
               description="Zurina Ismail is a lecturer and PhD candidate that focusing on smart grid awareness, energy sustainability, and human capital development. She also leads CSR and public affairs at Yayasan Canselor UNITEN. Her work supports education, community impact, and national energy goals through research, training, and stakeholder engagement."
-              imageSrc="/placeholder-female4.jpg"
+              imageSrc={zurina.src}
             />
           </div>
         </div>

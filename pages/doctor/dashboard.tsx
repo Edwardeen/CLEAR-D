@@ -3,6 +3,7 @@ import { useSession, getSession } from 'next-auth/react';
 import { useState, useEffect, ChangeEvent, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
+import Image from 'next/image'; // Added import
 import { IAssessment } from '../../models/Assessment';
 import React from 'react';
 import { IQuestionBankItem } from '../../models/QuestionBank';
@@ -13,6 +14,14 @@ import IllnessDistributionChart from '../../components/charts/IllnessDistributio
 import UserTrendChart from '../../components/charts/UserTrendChart';
 import { useServerStatus } from '../../contexts/ServerStatusContext';
 import { IUser } from '../../models/User';
+
+// Helper function to format name (can be moved to utils if used elsewhere)
+const formatName = (name: IUser['name']): string => {
+  if (typeof name === 'string') {
+    return name;
+  }
+  return `${name?.first || ''} ${name?.last || ''}`.trim();
+};
 
 // Helper debounce function
 const debounce = <F extends (...args: any[]) => void>(func: F, waitFor: number) => {
@@ -3171,12 +3180,22 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
             ) : (
               <div className="space-y-6">
                 <div className="flex items-center space-x-4">
-                  {selectedUserProfile.photoUrl && (
-                    <img 
-                      src={selectedUserProfile.photoUrl} 
-                      alt={`${typeof selectedUserProfile.name === 'string' ? selectedUserProfile.name : `${selectedUserProfile.name?.first || ''} ${selectedUserProfile.name?.last || ''}`.trim()}`}
-                      className="w-24 h-24 rounded-full object-cover border-4 border-indigo-100 shadow-md"
-                    />
+                  {selectedUserProfile.photoUrl ? (
+                    <div className="relative w-32 h-32 rounded-full overflow-hidden mx-auto border-4 border-blue-200 shadow-md">
+                      <Image 
+                        src={selectedUserProfile.photoUrl} 
+                        alt={`${formatName(selectedUserProfile.name)}'s profile`} 
+                        layout="fill" 
+                        objectFit="cover"
+                        className="rounded-full"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-32 h-32 rounded-full bg-gray-300 flex items-center justify-center mx-auto border-4 border-gray-200 text-gray-500">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm0 2a5 5 0 100-10 5 5 0 000 10zm6 0a1 1 0 11-2 0 1 1 0 012 0zM10 13a4 4 0 110-8 4 4 0 010 8z" clipRule="evenodd" />
+                      </svg>
+                    </div>
                   )}
                   <div>
                     <h4 className="text-xl font-bold text-gray-800">

@@ -375,7 +375,7 @@ const ResultsPage: NextPage<ResultsPageProps> = ({ assessment: initialAssessment
             <div>
               <h3 className="text-xl font-semibold text-blue-700 mb-1">Access Your Results & Card Anytime!</h3>
               <p className="text-gray-700">
-                This assessment result, along with an auto-generated CLEAR-D TEAL CARD, has been saved to your account. You can view them again anytime from your <Link href="/profile" legacyBehavior><a className="text-blue-600 hover:text-blue-800 underline font-medium">Profile Page</a></Link> under the "My Assessments" and "My Cards" sections respectively.
+                This assessment result, along with an auto-generated CLEAR-D TEAL CARD, has been saved to your account. You can view them again anytime from your <Link href="/profile" legacyBehavior><a className="text-blue-600 hover:text-blue-800 underline font-medium">Profile Page</a></Link> under the &quot;My Assessments&quot; and &quot;My Cards&quot; sections respectively.
               </p>
             </div>
           </div>
