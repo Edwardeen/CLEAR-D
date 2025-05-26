@@ -132,9 +132,9 @@ const HomePage: NextPage = () => {
             <SectionTitle title="Understanding CLEAR-D" subtitle="Your Health Partner" />
             <div className="max-w-3xl mx-auto text-center text-gray-700 space-y-6">
               <p className="text-lg">
-                CLEAR-D (Cancer & Glaucoma Early Recognition for Diabetics) is a dedicated platform designed to empower individuals with diabetes to take proactive steps towards managing their health risks. We provide accessible online assessment tools to help identify early signs associated with glaucoma and certain cancers, conditions often exacerbated by diabetes.
+                CLEAR-D (Cancer & Glaucoma Early Automated Recognition – Diabetes-linked) is a dedicated platform designed to empower individuals with diabetes to take proactive steps towards managing their health risks. We provide accessible online assessment tools to help identify early signs associated with glaucoma and certain cancers, conditions often exacerbated by diabetes.
               </p>
-              <p>
+              <p className="text-lg">
                 Our mission is to foster awareness, encourage timely medical consultation, and ultimately contribute to better health outcomes through early detection and informed action.
               </p>
               <div>
@@ -357,7 +357,7 @@ const HomePage: NextPage = () => {
                 title="Glaucoma in Diabetics" 
                 description="Diabetics have a higher risk of developing glaucoma. Learn about early detection and management strategies."
                 icon={<FiEye />}
-                linkHref="/glaucoma-info" 
+                linkHref="/login" 
                 linkText="Learn About Glaucoma"
                 bgColorClass="bg-gradient-to-br from-blue-500 to-blue-700"
                 textColorClass="text-white"
@@ -368,7 +368,7 @@ const HomePage: NextPage = () => {
                 title="Cancer Risks for Diabetics" 
                 description="Understand the links between diabetes and certain cancers. Proactive screening can make a difference."
                 icon={<FiActivity />}
-                linkHref="/cancer-info" 
+                linkHref="/login" 
                 linkText="Learn About Cancer Risks"
                 bgColorClass="bg-gradient-to-br from-pink-500 to-pink-700"
                 textColorClass="text-white"

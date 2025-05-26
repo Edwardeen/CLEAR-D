@@ -241,7 +241,25 @@ const UserProfileForm = ({ onUpdateSuccess }: UserProfileFormProps) => {
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value, type } = e.target;
+    const { name, type } = e.target;
+    let { value } = e.target; // Make value mutable
+
+    if (name === 'icPassportNo') {
+      value = value.replace(/[^a-zA-Z0-9]/g, '');
+    } else if (name === 'phone') {
+      value = value.replace(/[^\d+]/g, '');
+      if (value.length > 1) value = value.replace(/(?!^)[+]/g, '');
+      if (value && value !== '+' && !value.startsWith('+')) {
+        value = '+' + value.replace(/[+]/g, '');
+      }
+    } else if (name === 'emergencyContact.phone') {
+      value = value.replace(/[^\d+]/g, '');
+      if (value.length > 1) value = value.replace(/(?!^)[+]/g, '');
+      if (value && value !== '+' && !value.startsWith('+')) {
+        value = '+' + value.replace(/[+]/g, '');
+      }
+    }
+
     if (name.includes('.')) {
       const [parent, child] = name.split('.');
       setFormData(prev => ({
@@ -250,9 +268,19 @@ const UserProfileForm = ({ onUpdateSuccess }: UserProfileFormProps) => {
       }));
     } else if (type === 'checkbox') {
         const checked = (e.target as HTMLInputElement).checked;
-        setFormData(prev => ({ ...prev, [name]: checked }));
+        // For boolean fields like hasDiabetes, okuStatus, ensure they are boolean
+        if (name === 'hasDiabetes' || name === 'okuStatus') {
+            setFormData(prev => ({ ...prev, [name]: value === 'true' }));
+        } else {
+            setFormData(prev => ({ ...prev, [name]: checked }));
+        }
     } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
+      // For heightCm and weightKg, allow empty string to clear, otherwise parse
+      if (name === 'heightCm' || name === 'weightKg') {
+        setFormData(prev => ({ ...prev, [name]: value ? parseFloat(value) : '' }));
+      } else {
+        setFormData(prev => ({ ...prev, [name]: value }));
+      }
     }
   };
 
@@ -389,7 +417,7 @@ const UserProfileForm = ({ onUpdateSuccess }: UserProfileFormProps) => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label htmlFor="icPassportNo" className="block text-sm font-medium text-gray-700">IC/Passport Number</label>
+          <label htmlFor="icPassportNo" className="block text-sm font-medium text-gray-700">IC/Passport Number (no spaces/dashes)</label>
           <input type="text" name="icPassportNo" id="icPassportNo" value={formData.icPassportNo || ''} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
         </div>
         <div>
@@ -450,8 +478,8 @@ const UserProfileForm = ({ onUpdateSuccess }: UserProfileFormProps) => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label htmlFor="phone" className="block text-sm font-medium text-gray-700">Phone Number</label>
-          <input type="tel" name="phone" id="phone" value={formData.phone || ''} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
+          <label htmlFor="phone" className="block text-sm font-medium text-gray-700">Phone Number (e.g., +60123456789)</label>
+          <input type="tel" name="phone" id="phone" value={formData.phone || ''} onChange={handleChange} placeholder="+CountryCodeNumber" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
         </div>
         <div>
           <label htmlFor="maritalStatus" className="block text-sm font-medium text-gray-700">Marital Status</label>
@@ -484,8 +512,8 @@ const UserProfileForm = ({ onUpdateSuccess }: UserProfileFormProps) => {
           <input type="text" name="emergencyContact.relationship" id="emergencyContact.relationship" value={getNestedValue(formData, 'emergencyContact.relationship')} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
         </div>
         <div>
-          <label htmlFor="emergencyContact.phone" className="block text-sm font-medium text-gray-700">Phone</label>
-          <input type="tel" name="emergencyContact.phone" id="emergencyContact.phone" value={getNestedValue(formData, 'emergencyContact.phone')} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
+          <label htmlFor="emergencyContact.phone" className="block text-sm font-medium text-gray-700">Phone (e.g., +60123456789)</label>
+          <input type="tel" name="emergencyContact.phone" id="emergencyContact.phone" value={getNestedValue(formData, 'emergencyContact.phone')} onChange={handleChange} placeholder="+CountryCodeNumber" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
         </div>
       </div>
 

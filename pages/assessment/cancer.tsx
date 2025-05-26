@@ -6,6 +6,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/pages/api/auth/[...nextauth]';
 import Link from 'next/link';
 import QuestionCard from '@/components/QuestionCard';
+import GlossaryCard from '@/components/GlossaryCard';
 
 interface Question {
   questionId: string;
@@ -17,6 +18,30 @@ interface AnswerPayload {
   questionId: string;
   answer: string;
 }
+
+// Cancer-specific glossary terms
+const cancerGlossaryTerms = [
+  { 
+    term: 'Metastasis', 
+    definition: 'The spread of cancer cells from the primary site (where it started) to other parts of the body.' 
+  },
+  { 
+    term: 'Carcinogen', 
+    definition: 'Any substance or agent that can cause cancer or increase the risk of developing cancer.' 
+  },
+  {
+    term: 'Biopsy',
+    definition: 'A medical procedure to remove a small sample of tissue for examination under a microscope to determine if cancer is present.'
+  },
+  {
+    term: 'Benign',
+    definition: 'Not cancerous. Benign tumors may grow but do not spread to other parts of the body.'
+  },
+  {
+    term: 'Malignant',
+    definition: 'Cancerous. Malignant tumors can invade and damage nearby tissues and organs, and can spread to other parts of the body.'
+  }
+];
 
 const CancerAssessmentPage: NextPage = () => {
   const { data: session, status } = useSession();
@@ -157,6 +182,13 @@ const CancerAssessmentPage: NextPage = () => {
           disabled={isSubmitting}
         />
       )}
+
+      {/* Glossary Card - Added below the question for easy access */}
+      <GlossaryCard 
+        title="Cancer Terms" 
+        terms={cancerGlossaryTerms} 
+        themeColor="pink" 
+      />
 
       <div className="mt-8 flex w-full max-w-xl justify-between items-center">
         {currentQuestionIndex > 0 ? (

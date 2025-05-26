@@ -74,7 +74,7 @@ export default async function handler(
         },
         filters: {
           states,
-          types: ["Kerajaan", "Swasta", "Individual", "NGO", "Other"],
+          types: ["Government", "Private", "Individual", "NGO", "Other"],
           specializations
         }
       });

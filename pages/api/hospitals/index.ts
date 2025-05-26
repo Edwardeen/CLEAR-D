@@ -10,7 +10,7 @@ export default async function handler(
 
   if (req.method === 'GET') {
     try {
-      const { state, type, search, page = '1', limit = '10' } = req.query;
+      const { state, type, search, page = '1', limit = '12' } = req.query;
       
       // Build query
       const query: Record<string, any> = {};
@@ -71,7 +71,7 @@ export default async function handler(
         },
         filters: {
           states,
-          types: ["Kerajaan", "Swasta", "Individual", "NGO", "Other"]
+          types: ["Government", "Private", "Individual", "NGO", "Other"]
         }
       });
     } catch (error: any) {

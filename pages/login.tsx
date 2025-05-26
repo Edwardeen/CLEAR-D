@@ -140,6 +140,12 @@ const LoginPage: NextPage = () => {
                    Register here
                 </Link>
              </p>
+             <p>
+                
+                <Link href="/" className="font-semibold text-purple-600 hover:text-purple-500 hover:underline ml-1 transition duration-150 ease-in-out">
+                Go Back home
+                </Link>
+             </p>
 
          </div>
       </div>

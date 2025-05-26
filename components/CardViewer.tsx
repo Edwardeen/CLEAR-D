@@ -180,9 +180,8 @@ const CardViewer: React.FC<CardViewerProps> = ({
   // For downloadable version, ensure we use inline styles
   return (
     <div style={{
-      width: '100%',
-      maxWidth: '100%',
-      margin: '0 auto',
+      width: '384px', // Standardized width
+      margin: '0 auto', // Keeps the card centered
       padding: '0px',
     }}>
       {/* Card container */}
@@ -195,6 +194,21 @@ const CardViewer: React.FC<CardViewerProps> = ({
         border: '1px solid #E5E7EB',
         position: 'relative',
       }}>
+        {/* New Title Section */}
+        <div style={{
+          backgroundColor: '#14B8A6', // Teal-500 like color
+          color: 'white',
+          padding: '12px 0',
+          textAlign: 'center',
+          fontSize: '18px',
+          fontWeight: 'bold',
+          letterSpacing: '0.05em',
+          textTransform: 'uppercase',
+          borderBottom: '1px solid #0D9488' // Darker teal for separation
+        }}>
+          CLEAR-D TEAL CARD
+        </div>
+
         {/* Medical cross watermark */}
         <div style={{
           position: 'absolute',
@@ -236,10 +250,11 @@ const CardViewer: React.FC<CardViewerProps> = ({
               alignItems: 'center',
             }}>
               <div style={{
-                height: '40px',
-                width: '150px',
-                marginRight: '10px',
+                height: '30px',
+                width: '120px',
+                marginRight: '3px',
                 position: 'relative',
+                overflow: 'visible',
               }}>
                 <Image 
                   src={localLogoForCard}
@@ -256,6 +271,7 @@ const CardViewer: React.FC<CardViewerProps> = ({
                   crossOrigin="anonymous"
                 />
               </div>
+
 
             </div>
             
@@ -304,7 +320,7 @@ const CardViewer: React.FC<CardViewerProps> = ({
                 height: '140px',
                 backgroundColor: 'white',
                 borderRadius: '6px',
-                overflow: 'hidden',
+                overflow: 'visible',
                 boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
                 border: '1px solid #E5E7EB',
                 flexShrink: 0,
@@ -315,7 +331,7 @@ const CardViewer: React.FC<CardViewerProps> = ({
                     width: '100%',
                     height: '100%',
                     position: 'relative',
-                    overflow: 'hidden'
+                    overflow: 'visible'
                   }}>
                     <Image 
                       src={userPhotoUrl} 

@@ -6,6 +6,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/pages/api/auth/[...nextauth]';
 import Link from 'next/link';
 import QuestionCard from '@/components/QuestionCard';
+import GlossaryCard from '@/components/GlossaryCard';
 
 interface Question {
   questionId: string;
@@ -17,6 +18,30 @@ interface AnswerPayload {
   questionId: string;
   answer: string;
 }
+
+// Glaucoma-specific glossary terms
+const glaucomaGlossaryTerms = [
+  { 
+    term: 'IOP (Intraocular Pressure)', 
+    definition: 'The fluid pressure inside the eye. Elevated IOP is a key risk factor for glaucoma.' 
+  },
+  { 
+    term: 'Halos', 
+    definition: 'Seeing rainbow-like circles or rings around lights, which can be a symptom of certain eye conditions, including glaucoma.' 
+  },
+  {
+    term: 'Tunnel Vision',
+    definition: 'Loss of peripheral (side) vision while central vision remains intact, creating a tunnel-like field of view. A common symptom of advanced glaucoma.'
+  },
+  {
+    term: 'Open-Angle Glaucoma',
+    definition: 'The most common form of glaucoma, where the drainage angle formed by the cornea and iris remains open, but the drainage canals become clogged over time.'
+  },
+  {
+    term: 'Angle-Closure Glaucoma',
+    definition: 'A less common form of glaucoma where the drainage angle closes or becomes blocked suddenly, causing a rapid increase in eye pressure.'
+  }
+];
 
 const GlaucomaAssessmentPage: NextPage = () => {
   const { data: session, status } = useSession();
@@ -157,6 +182,13 @@ const GlaucomaAssessmentPage: NextPage = () => {
           disabled={isSubmitting}
         />
       )}
+
+      {/* Glossary Card - Added below the question for easy access */}
+      <GlossaryCard 
+        title="Glaucoma Terms" 
+        terms={glaucomaGlossaryTerms} 
+        themeColor="green" 
+      />
 
       <div className="mt-8 flex w-full max-w-xl justify-between items-center">
         {currentQuestionIndex > 0 ? (

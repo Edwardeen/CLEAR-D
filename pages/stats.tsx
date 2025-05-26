@@ -365,7 +365,7 @@ const StatsPage = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-center mb-8">Global Health Statistics</h1>
+      <h1 className="text-3xl font-bold text-center mb-8">Global CLEAR-D Score Statistics</h1>
       
       {loading && !error && (
         <div className="text-center py-8">
@@ -391,7 +391,7 @@ const StatsPage = () => {
           {/* Global Stats Summary */}
           {globalStatsSummary && (
             <div className="bg-white p-6 rounded-lg shadow-md mb-8">
-              <h2 className="text-2xl font-semibold mb-6 text-center">Global Assessment Overview</h2>
+              <h2 className="text-2xl font-semibold mb-6 text-center">Overview</h2>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">

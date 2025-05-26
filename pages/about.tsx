@@ -16,20 +16,24 @@ const SectionTitle: React.FC<{ title: string; subtitle?: string; className?: str
 );
 
 // Team Member Card Component
-const TeamMemberCard: React.FC<{ name: string; title: string; description: string; image?: string }> = 
-  ({ name, title, description, image }) => (
-  <div className="bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-300 hover:shadow-xl">
-    <div className="p-6">
-      {image && (
-        <div className="mb-4 flex justify-center">
-          <div className="w-32 h-32 rounded-full overflow-hidden bg-gray-200">
-            <Image src={image} alt={name} width={128} height={128} className="object-cover" />
-          </div>
-        </div>
-      )}
+const TeamMemberCard: React.FC<{ name: string; title: string; description: string; imageSrc: string }> = 
+  ({ name, title, description, imageSrc }) => (
+  <div className="bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-300 hover:shadow-xl flex flex-row items-stretch">
+    {/* Text Content Area (Left) */}
+    <div className="p-6 flex-1 flex flex-col">
       <h3 className="text-xl font-bold text-gray-800 mb-2">{name}</h3>
       <p className="text-blue-600 font-medium mb-4">{title}</p>
-      <p className="text-gray-600 text-sm">{description}</p>
+      <p className="text-gray-600 text-sm flex-grow">{description}</p>
+    </div>
+    {/* Image Area (Right) */}
+    <div className="relative w-40 md:w-48 flex-shrink-0">
+      <Image 
+        src={imageSrc} 
+        alt={name} 
+        layout="fill" 
+        objectFit="cover" 
+        className="transition-transform duration-300 group-hover:scale-105"
+      />
     </div>
   </div>
 );
@@ -139,39 +143,44 @@ const AboutPage: NextPage = () => {
       {/* Core Team Section */}
       <section className="py-16 bg-gray-50">
         <div className="container mx-auto px-6">
-          <SectionTitle title="Our Core Team" subtitle="The People Behind CLEAR-D" />
+          <SectionTitle title="Our Core Team and Inventors" subtitle="The People Behind CLEAR-D" />
           
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Dr. Siti Fara Fadila */}
             <TeamMemberCard 
               name="Dr. Siti Fara Fadila Binti Abd Razak"
-              title="Senior Lecturer, Universiti Tenaga Nasional"
-              description="Specializing in Islamic Finance & Waqf Financial Modelling. Ph.D. (2024), MBA in Finance, BSc (Hons) in International Financial Economics. Prolific researcher/consultant with multiple gold medals, two Best Woman Inventor&apos; awards, and RM297,000 TNB Seeding Fund secured."
+              title="Senior Lecturer and Researcher, Universiti Tenaga Nasional"
+              description="Specializing in Islamic Finance & Waqf Financial Modelling. Ph.D. (2024), MBA in Finance, BSc (Hons) in International Financial Economics. Prolific researcher/consultant with multiple gold medals, two Best Woman Inventor&apos;s awards, and RM297,000 TNB Seeding Fund secured."
+              imageSrc="/placeholder-female1.jpg"
             />
             
             {/* Mohd Zulkeflee */}
             <TeamMemberCard 
               name="Mohd Zulkeflee Bin Abd Razak"
-              title="Senior Lecturer, Universiti Tenaga Nasional"
+              title="Senior Lecturer and Researcher, Universiti Tenaga Nasional"
               description="Distinguished academic with 20+ years in business, marketing & leadership. Diploma in Business Studies (UiTM), BBA (Hons) in International Business, MBA in Marketing, and Ph.D. candidate at UMPSA. Senior Lecturer at UNITEN since 2010, specializing in service recovery, retailing, franchising & sustainability."
+              imageSrc="/placeholder-male1.jpg"
             />
 
             <TeamMemberCard 
               name="Maziah binti Mokhtar, CA(M)"
-              title="Lecturer and researcher, Accounting and Economics Department, Universiti Tenaga Nasional"
+              title="Lecturer and Researcher, Accounting and Economics Department, Universiti Tenaga Nasional"
               description="Maziah is a Chartered Accountant and PhD candidate specializing in Sustainability Reporting. She holds a Master of Accountancy from UiTM and  has practical experience in accounting, auditing, and financial management. She teaches various finance-related courses and is an active member of MIA, ASEAN CPA, MFPC, and ESG Malaysia."
+              imageSrc="/placeholder-female2.jpg"
             />
 
-<TeamMemberCard 
+            <TeamMemberCard 
               name="Izzatul Ussna Ridzwan "
-              title="Lecturer and researcher, Accounting and Economics Department, Universiti Tenaga Nasional"
-              description="She holds a Master in Accountancy and a Bachelor of Accounting (Hons.) from UiTM, Malaysia. Her career includes secondments to UNITEN’s Intelligence and Strategy Management Centre and Yayasan Canselor UNITEN. She teaches a range of accounting and finance courses, conducts impactful research, and has received multiple research awards. A member of professional bodies such as ACFE and ESG Malaysia, she actively contributes to UNITEN’s academic and community initiatives."
+              title="Lecturer and Researcher, Accounting and Economics Department, Universiti Tenaga Nasional"
+              description="She holds a Master in Accountancy and a Bachelor of Accounting (Hons.) from UiTM, Malaysia. Her career includes secondments to UNITEN's Intelligence and Strategy Management Centre and Yayasan Canselor UNITEN. She teaches a range of accounting and finance courses, conducts impactful research, and has received multiple research awards. A member of professional bodies such as ACFE and ESG Malaysia, she actively contributes to UNITEN's academic and community initiatives."
+              imageSrc="/placeholder-female3.jpg"
             />
 
-<TeamMemberCard 
+            <TeamMemberCard 
               name="Zurina Ismail"
-              title="Lecturer and researcher, Management Department, Universiti Tenaga Nasional"
+              title="Lecturer and Researcher, Management Department, Universiti Tenaga Nasional"
               description="Zurina Ismail is a lecturer and PhD candidate that focusing on smart grid awareness, energy sustainability, and human capital development. She also leads CSR and public affairs at Yayasan Canselor UNITEN. Her work supports education, community impact, and national energy goals through research, training, and stakeholder engagement."
+              imageSrc="/placeholder-female4.jpg"
             />
           </div>
         </div>

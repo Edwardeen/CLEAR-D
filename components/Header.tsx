@@ -39,7 +39,6 @@ const navStructureBase: NavItemGroup[] = [
 
 const moreDropdownItems: NavItem[] = [
   { href: '/about', label: 'About Us' },
-  { href: '/clear-d-card', label: 'Manage CLEAR-D Cards' },
 ];
 
 const userDropdownItems: NavItem[] = [
@@ -208,7 +207,7 @@ const Header = () => {
               </a>
             </Link>
             <p className="ml-3 text-xs text-gray-500 hidden md:block">
-              Cancer & Glaucoma Early Recognition, Diabetes-Linked
+            Cancer & Glaucoma Early Automated Recognition – Diabetes-linked
             </p>
           </div>
 

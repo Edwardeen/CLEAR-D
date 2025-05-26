@@ -15,7 +15,7 @@ export interface IHospital extends Document {
   _id: mongoose.Types.ObjectId;
   id?: string;
   name: string;
-  type: "Kerajaan" | "Swasta" | "Individual" | "NGO" | "Other";
+  type: "Government" | "Private" | "Individual" | "NGO" | "Other";
   state: string;
   address: string;
   contact?: IContactInfo;
@@ -36,7 +36,7 @@ const HospitalSchema: Schema<IHospital> = new Schema(
     },
     type: { 
       type: String, 
-      enum: ["Kerajaan", "Swasta", "Individual", "NGO", "Other"],
+      enum: ["Government", "Private", "Individual", "NGO", "Other"],
       required: [true, 'Type is required']
     },
     state: { 

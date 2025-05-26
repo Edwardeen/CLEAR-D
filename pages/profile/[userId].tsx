@@ -206,9 +206,6 @@ const PublicProfilePage: NextPage<ProfilePageProps> = ({ profileData, error, use
                         {getRiskLevelName(latestAssessment.totalScore, latestAssessment.type)}
                       </span>
                     </p>
-                    <Link href={`/results/${latestAssessment._id}`} legacyBehavior>
-                      <a className="mt-4 inline-block bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition-colors text-sm">View Full Report</a>
-                    </Link>
                   </div>
                 );
               })}

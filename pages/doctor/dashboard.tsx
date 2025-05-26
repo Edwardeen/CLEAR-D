@@ -12,6 +12,7 @@ import MonthlyAssessmentTrendsChart from '../../components/charts/MonthlyAssessm
 import IllnessDistributionChart from '../../components/charts/IllnessDistributionChart';
 import UserTrendChart from '../../components/charts/UserTrendChart';
 import { useServerStatus } from '../../contexts/ServerStatusContext';
+import { IUser } from '../../models/User';
 
 // Helper debounce function
 const debounce = <F extends (...args: any[]) => void>(func: F, waitFor: number) => {
@@ -29,6 +30,7 @@ interface PopulatedAssessment extends Omit<IAssessment, 'userId' | 'timestamp' |
     _id: string;
     name: string | { first?: string; last?: string };
     email: string;
+    icPassportNo?: string; // Added icPassportNo
   } | null;
   timestamp: string; 
   createdAt: string; // Explicitly string for client-side component compatibility after SSR JSON stringification
@@ -103,12 +105,12 @@ interface DoctorDashboardProps {
       endDate: string;
       illnessType: string;
       minScore: string;
-      riskLevel: string; // Changed from optional to required for consistency
+      riskLevel: string;
   };
   initialSortField: SortField | null;
   initialSortOrder: SortOrder | null;
-  initialIllnesses?: IIllness[];
-  error?: string;
+  initialIllnesses: IIllness[]; 
+  error?: string | null;
 }
 
 const DoctorDashboard: NextPage<DoctorDashboardProps> = ({ 
@@ -142,6 +144,11 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
     cancer: { date: string; score: number }[];
   }>({ glaucoma: [], cancer: [] });
   const [loadingUserTrends, setLoadingUserTrends] = useState<boolean>(false);
+
+  // State for user profile modal
+  const [showUserProfileModal, setShowUserProfileModal] = useState<boolean>(false);
+  const [selectedUserProfile, setSelectedUserProfile] = useState<IUser | null>(null);
+  const [loadingUserProfile, setLoadingUserProfile] = useState<boolean>(false);
 
   // State for filters
   const [filters, setFilters] = useState(initialFilters);
@@ -1757,8 +1764,18 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
                      </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <Link href={`/results/${assessment._id}`} legacyBehavior>
-                              <a className="text-indigo-600 hover:text-indigo-900">View Details</a>
-                        </Link>
+                              <a className="text-indigo-600 hover:text-indigo-900 mr-2">View Details</a>
+                            </Link>
+                            {assessment.userId?._id && (
+                              <button
+                                onClick={() => fetchUserProfile(assessment.userId!._id)}
+                                disabled={loadingUserProfile}
+                                className="text-blue-600 hover:text-blue-900"
+                                title="View Full Profile"
+                              >
+                                {loadingUserProfile && selectedUserProfile?.['_id'] === assessment.userId._id ? 'Loading...' : 'View Profile'}
+                              </button>
+                            )}
                      </td>
                   </tr>
                 ))}
@@ -3093,6 +3110,32 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
     }
   };
 
+  // Function to fetch full user profile
+  const fetchUserProfile = async (userId: string) => {
+    if (!userId) return;
+    setLoadingUserProfile(true);
+    setSelectedUserProfile(null); // Clear previous profile
+    try {
+      const response = await fetch(`/api/users/${userId}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to fetch user profile');
+      }
+      const result = await response.json();
+      if (result.success && result.data) {
+        setSelectedUserProfile(result.data);
+        setShowUserProfileModal(true);
+      } else {
+        throw new Error(result.message || 'User profile not found or invalid data format.');
+      }
+    } catch (err: any) {
+      console.error('Error fetching user profile:', err);
+      setError(err.message || 'Could not load user profile.'); // Display error in main error state for now
+    } finally {
+      setLoadingUserProfile(false);
+    }
+  };
+
   // Main dashboard content for doctors
   return (
     <div className="container mx-auto px-4 py-6">
@@ -3101,6 +3144,177 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
       {renderTabs()}
 
       {renderContent()}
+
+      {/* User Profile Modal */}
+      {showUserProfileModal && selectedUserProfile && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 z-50 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
+            <div className="flex justify-between items-center mb-6 border-b pb-4">
+              <h3 className="text-2xl font-semibold text-gray-800">
+                User Profile
+              </h3>
+              <button
+                onClick={() => {
+                  setShowUserProfileModal(false);
+                  setSelectedUserProfile(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors text-2xl"
+              >
+                &times;
+              </button>
+            </div>
+            {loadingUserProfile ? (
+              <div className="text-center py-10">
+                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-indigo-600 mx-auto"></div>
+                <p className="mt-3 text-gray-600">Loading profile...</p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="flex items-center space-x-4">
+                  {selectedUserProfile.photoUrl && (
+                    <img 
+                      src={selectedUserProfile.photoUrl} 
+                      alt={`${typeof selectedUserProfile.name === 'string' ? selectedUserProfile.name : `${selectedUserProfile.name?.first || ''} ${selectedUserProfile.name?.last || ''}`.trim()}`}
+                      className="w-24 h-24 rounded-full object-cover border-4 border-indigo-100 shadow-md"
+                    />
+                  )}
+                  <div>
+                    <h4 className="text-xl font-bold text-gray-800">
+                      {typeof selectedUserProfile.name === 'string' ? selectedUserProfile.name : `${selectedUserProfile.name?.first || ''} ${selectedUserProfile.name?.last || ''}`.trim()}
+                    </h4>
+                    <p className="text-sm text-gray-500">{selectedUserProfile.email}</p>
+                    {selectedUserProfile.icPassportNo && (
+                        <p className="text-sm text-gray-500">IC/Passport: {selectedUserProfile.icPassportNo}</p>
+                    )}
+                  </div>
+                </div>
+
+                {[{
+                  label: 'Personal Information',
+                  fields: [
+                    { key: 'dateOfBirth', label: 'Date of Birth' },
+                    { key: 'gender', label: 'Gender' },
+                    { key: 'maritalStatus', label: 'Marital Status' },
+                    { key: 'race', label: 'Race' },
+                    { key: 'profession', label: 'Profession' },
+                  ]
+                }, {
+                  label: 'Contact Information',
+                  fields: [
+                    { key: 'phone', label: 'Phone' },
+                    { key: 'address', label: 'Address' },
+                    { key: 'emergencyContact', label: 'Emergency Contact' },
+                  ]
+                }, {
+                  label: 'Health Information',
+                  fields: [
+                    { key: 'heightCm', label: 'Height (cm)' },
+                    { key: 'weightKg', label: 'Weight (kg)' },
+                    { key: 'bloodType', label: 'Blood Type' },
+                    { key: 'allergies', label: 'Allergies' },
+                    { key: 'vaccinationHistory', label: 'Vaccination History' },
+                    { key: 'currentMedications', label: 'Current Medications' },
+                    { key: 'okuStatus', label: 'OKU Status' },
+                    { key: 'hasDiabetes', label: 'Has Diabetes' },
+                  ]
+                }, {
+                  label: 'Insurance Details',
+                  fields: [
+                    { key: 'insurance', label: 'Insurance' },
+                  ]
+                }].map(section => (
+                  <div key={section.label}>
+                    <h5 className="text-md font-semibold text-indigo-700 mb-3 border-b pb-2">{section.label}</h5>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                      {section.fields.map(({ key, label }) => {
+                        const value = selectedUserProfile[key as keyof IUser];
+                        if (['password', '_id', '__v', 'updatedAt', 'createdAt', 'photoUrl', 'photoPublicId', 'role'].includes(key)) return null;
+
+                        let displayValue: React.ReactNode;
+
+                        if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '') || (Array.isArray(value) && value.length === 0)) {
+                          displayValue = <span className="text-gray-400 italic">N/A</span>;
+                        } else if (key === 'dateOfBirth') {
+                          try {
+                            displayValue = new Date(value as string).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+                          } catch (e) { displayValue = <span className="text-gray-400 italic">Invalid Date</span>; }
+                        } else if (key === 'address' && typeof value === 'object') {
+                          const addr = value as IUser['address'];
+                          displayValue = (
+                            <div className="text-sm text-gray-700">
+                              {addr?.street && <p>{addr.street}</p>}
+                              {addr?.city && <p>{addr.city}, {addr.state} {addr.postcode}</p>}
+                              {addr?.country && <p>{addr.country}</p>}
+                            </div>
+                          );
+                        } else if (key === 'emergencyContact' && typeof value === 'object') {
+                          const ec = value as IUser['emergencyContact'];
+                          displayValue = (
+                            <div className="text-sm text-gray-700">
+                              {ec?.name && <p><strong>Name:</strong> {ec.name}</p>}
+                              {ec?.relationship && <p><strong>Relationship:</strong> {ec.relationship}</p>}
+                              {ec?.phone && <p><strong>Phone:</strong> {ec.phone}</p>}
+                            </div>
+                          );
+                        } else if (key === 'insurance' && typeof value === 'object') {
+                          const ins = value as IUser['insurance'];
+                          displayValue = (
+                            <div className="text-sm text-gray-700">
+                              {ins?.company && ins.company !== '-' && <p><strong>Company:</strong> {ins.company}</p>}
+                              {ins?.certificateNo && <p><strong>Certificate No:</strong> {ins.certificateNo}</p>}
+                              {(!ins?.company || ins.company === '-') && !ins?.certificateNo && <span className="text-gray-400 italic">N/A</span>}
+                            </div>
+                          );
+                        } else if (Array.isArray(value)) {
+                          displayValue = value.map((item, idx) => (
+                            <span key={idx} className="block text-sm text-gray-700">
+                              {typeof item === 'object' ? JSON.stringify(item) : item}
+                            </span>
+                          ));
+                           if (key === 'vaccinationHistory' || key === 'currentMedications') {
+                            displayValue = value.length > 0 ? (
+                                <ul className="list-disc list-inside pl-1 space-y-1">
+                                  {(value as Array<any>).map((item: any, index: number) => (
+                                    <li key={index} className="text-sm text-gray-700">
+                                      {key === 'vaccinationHistory' ? `${item.vaccine} (Date: ${item.date ? new Date(item.date).toLocaleDateString() : 'N/A'})` 
+                                                                 : `${item.name} (Dosage: ${item.dosage || 'N/A'})`}
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : <span className="text-gray-400 italic">N/A</span>;
+                           }
+                        } else if (typeof value === 'boolean') {
+                          displayValue = value ? <span className="text-green-600 font-semibold">Yes</span> : <span className="text-red-600 font-semibold">No</span>;
+                        } else {
+                          displayValue = String(value);
+                        }
+
+                        return (
+                          <div key={key} className="py-1">
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">{label}</p>
+                            <div className="mt-1 text-sm text-gray-800">{displayValue}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="mt-8 flex justify-end pt-4 border-t">
+              <button
+                onClick={() => {
+                  setShowUserProfileModal(false);
+                  setSelectedUserProfile(null);
+                }}
+                className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -3109,158 +3323,158 @@ const DoctorDashboard: NextPage<DoctorDashboardProps> = ({
 export const getServerSideProps: GetServerSideProps<DoctorDashboardProps> = async (context) => {
   const session = await getSession(context);
 
-  // 1. Check if user is logged in
+  // Default props for error cases or initial state. 
+  // initialIllnesses is now required in DoctorDashboardProps, so it must be initialized.
+  const defaultErrorProps: Omit<DoctorDashboardProps, 'error'> = {
+    initialAssessments: [],
+    totalAssessments: 0,
+    totalPages: 0,
+    currentPage: 1,
+    initialFilters: { 
+        userEmail: '', startDate: '', endDate: '', illnessType: '', minScore: '0', riskLevel: '' 
+    },
+    initialSortField: null,
+    initialSortOrder: null,
+    initialIllnesses: [], // Ensure this is always an array
+  };
+
   if (!session?.user?.id) {
     return {
       redirect: {
-        destination: '/login?callbackUrl=/doctor/dashboard', // Redirect to login
+        destination: '/login?callbackUrl=/doctor/dashboard', 
         permanent: false,
       },
     };
   }
 
-  // 2. Check if user has the 'official' role
-   if (session.user.role !== 'doctor') {
-    // You can redirect non-officials or return an error prop
-        return {
-      // Redirect to home page or an access denied page
+  if (session.user.role !== 'doctor') {
+    return {
       redirect: { destination: '/?error=access_denied', permanent: false },
-        };
-   }
+    };
+  }
 
-  // 3. Fetch data for the doctor
-    const page = parseInt(context.query.page as string) || 1;
-    const limit = 256; // Changed from 100 to 256
-    const userEmail = context.query.userEmail as string || '';
-    const startDate = context.query.startDate as string || '';
-    const endDate = context.query.endDate as string || '';
-    const initialMinScore = context.query.minScore as string || '0';
-    const initialIllnessType = context.query.type as string || '';
-    const initialRiskLevel = context.query.riskLevel as string || ''; // Added
+  const page = parseInt(context.query.page as string) || 1;
+  const limit = 256;
+  const userEmailQuery = context.query.userEmail as string || '';
+  const startDateQuery = context.query.startDate as string || '';
+  const endDateQuery = context.query.endDate as string || '';
+  const initialMinScore = context.query.minScore as string || '0';
+  const initialIllnessType = context.query.type as string || '';
+  const initialRiskLevel = context.query.riskLevel as string || '';
 
-    // Added support for sort query params
-    const initialSortField = context.query.sortField as SortField || null;
-    const initialSortOrder = context.query.sortOrder as SortOrder || null;
+  const initialSortField = context.query.sortField as SortField || null;
+  const initialSortOrder = context.query.sortOrder as SortOrder || null;
 
-    const initialFilters = { 
-      userEmail, 
-      startDate, 
-      endDate, 
-      illnessType: initialIllnessType || '', 
-      minScore: initialMinScore || '0', 
-      riskLevel: initialRiskLevel || '' // Added
+  const currentInitialFilters = { 
+    userEmail: userEmailQuery, 
+    startDate: startDateQuery, 
+    endDate: endDateQuery, 
+    illnessType: initialIllnessType, 
+    minScore: initialMinScore, 
+    riskLevel: initialRiskLevel
+  };
+
+  const params = new URLSearchParams({
+    page: page.toString(),
+    limit: limit.toString(),
+  });
+  if (userEmailQuery) params.set('userEmail', userEmailQuery);
+  if (startDateQuery) params.set('startDate', startDateQuery);
+  if (endDateQuery) params.set('endDate', endDateQuery);
+  if (initialMinScore !== '0') params.set('minScore', initialMinScore);
+  if (initialIllnessType) params.set('type', initialIllnessType);
+  if (initialRiskLevel) params.set('riskLevel', initialRiskLevel);
+  if (initialSortField) {
+    const fieldToSort = initialSortField === 'timestamp' ? 'createdAt' : initialSortField;
+    params.set('sortField', fieldToSort);
+  }
+  if (initialSortOrder) {
+    params.set('sortOrder', initialSortOrder);
+  }
+
+  let fetchedIllnesses: IIllness[] = []; // Default to empty array
+  try {
+    const illnessesApiUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/illnesses`;
+    const illnessesResponse = await fetch(illnessesApiUrl, {
+      headers: { 'Cookie': context.req.headers.cookie || '' },
+    });
+    if (illnessesResponse.ok) {
+      const illnessesData = await illnessesResponse.json();
+      fetchedIllnesses = illnessesData.illnesses || [];
+    } else {
+      console.error('SSR: Failed to fetch illnesses', illnessesResponse.status);
+      // Keep fetchedIllnesses as []
+    }
+  } catch (error) {
+    console.error('Error fetching illnesses server-side:', error);
+    // Keep fetchedIllnesses as []
+  }
+
+  try {
+    const assessmentsApiUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/assessments?${params.toString()}`;
+    const assessmentsResponse = await fetch(assessmentsApiUrl, {
+      headers: { 'Cookie': context.req.headers.cookie || '' },
+    });
+
+    if (!assessmentsResponse.ok) {
+      const errorData = await assessmentsResponse.json().catch(() => ({ message: 'Failed to parse error from assessments API' }));
+      console.error("SSR fetch error (Doctor Dashboard):", errorData);
+      return { 
+        props: { 
+          ...defaultErrorProps, // Spreads default values including initialIllnesses: []
+          initialFilters: currentInitialFilters, 
+          initialSortField,
+          initialSortOrder,
+          initialIllnesses: fetchedIllnesses, // Overrides with fetched (possibly empty) or default if fetch failed badly
+          error: errorData.message || 'Failed to load assessments.' 
+        } 
+      };
+    }
+
+    const assessmentsData = await assessmentsResponse.json();
+    if (!assessmentsData || !Array.isArray(assessmentsData.assessments) || typeof assessmentsData.totalAssessments !== 'number' || typeof assessmentsData.totalPages !== 'number' || typeof assessmentsData.currentPage !== 'number') {
+      console.error('SSR: Invalid data format received from assessments API', assessmentsData);
+      return {
+        props: {
+          ...defaultErrorProps,
+          initialFilters: currentInitialFilters,
+          initialSortField,
+          initialSortOrder,
+          initialIllnesses: fetchedIllnesses,
+          error: 'Invalid data format received from API.'
+        },
+      }; 
+    }
+
+    // Correctly define successProps before returning
+    const successProps: DoctorDashboardProps = {
+        initialAssessments: JSON.parse(JSON.stringify(assessmentsData.assessments)),
+        totalAssessments: assessmentsData.totalAssessments,
+        totalPages: assessmentsData.totalPages,
+        currentPage: Number(assessmentsData.currentPage) || 1,
+        initialFilters: currentInitialFilters,
+        initialSortField,
+        initialSortOrder,
+        initialIllnesses: fetchedIllnesses, 
+        error: null 
     };
 
-     const params = new URLSearchParams({
-            page: page.toString(),
-            limit: limit.toString(),
-        });
-        if (userEmail) params.set('userEmail', userEmail);
-        if (startDate) params.set('startDate', startDate);
-        if (endDate) params.set('endDate', endDate);
-        if (initialMinScore !== '0') params.set('minScore', initialMinScore);
-        if (initialIllnessType) params.set('type', initialIllnessType);
-        if (initialRiskLevel) params.set('riskLevel', initialRiskLevel); // Added
-        
-        // Add sort params to API request if available
-        if (initialSortField) {
-            const fieldToSort = initialSortField === 'timestamp' ? 'createdAt' : initialSortField;
-            params.set('sortField', fieldToSort);
-        }
-        if (initialSortOrder) {
-            params.set('sortOrder', initialSortOrder);
-        }
-
-    // 4. Also fetch illnesses for the illness management tab
-    let initialIllnesses: IIllness[] = [];
-    try {
-      const apiUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/illnesses`;
-      const response = await fetch(apiUrl, {
-        headers: {
-          'Cookie': context.req.headers.cookie || '',
-        },
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        initialIllnesses = data.illnesses || [];
-      }
-    } catch (error) {
-      console.error('Error fetching illnesses server-side:', error);
-    }
-
-    try {
-         // Construct the full URL for the API endpoint
-         const apiUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/assessments?${params.toString()}`;
-
-         const response = await fetch(apiUrl, {
-            headers: {
-                // Pass the session cookie to the API route for authentication
-                'Cookie': context.req.headers.cookie || '',
-            },
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-             console.error("SSR fetch error (Doctor Dashboard):", errorData);
-            return { 
-              props: { 
-                initialAssessments: [], 
-                totalAssessments: 0, 
-                totalPages: 0, 
-                currentPage: 1, 
-                initialFilters: {
-                  ...initialFilters,
-                  minScore: initialMinScore || '0',
-                  illnessType: initialIllnessType || '',
-                  riskLevel: initialRiskLevel || '' // Added
-                }, 
-                initialSortField,
-                initialSortOrder,
-                initialIllnesses,
-                error: errorData.message || 'Failed to load assessments.' 
-              } 
-            };
-        }
-
-        const data = await response.json();
-         if (!data || !Array.isArray(data.assessments)) {
-             throw new Error('Invalid data format received from API');
-         }
-
-        return {
-            props: {
-                initialAssessments: JSON.parse(JSON.stringify(data.assessments)),
-                totalAssessments: data.totalAssessments,
-                totalPages: data.totalPages,
-                currentPage: Number(data.currentPage) || 1,
-                initialFilters,
-                initialSortField,
-                initialSortOrder,
-                initialIllnesses,
-            },
-        };
-    } catch (error: any) {
-         console.error('Error fetching assessments server-side (Doctor Dashboard):', error);
-         return { 
-           props: { 
-             initialAssessments: [], 
-             totalAssessments: 0, 
-             totalPages: 0, 
-             currentPage: 1, 
-             initialFilters: {
-               ...initialFilters,
-               minScore: initialMinScore || '0',
-               illnessType: initialIllnessType || '',
-               riskLevel: initialRiskLevel || '' // Added
-             }, 
-             initialSortField,
-             initialSortOrder,
-             initialIllnesses,
-             error: error.message || 'Server error fetching assessments.' 
-           } 
-         };
-    }
+    return {
+      props: successProps,
+    };
+  } catch (error: any) {
+    console.error('Error fetching assessments server-side (Doctor Dashboard):', error);
+    return { 
+      props: { 
+        ...defaultErrorProps,
+        initialFilters: currentInitialFilters,
+        initialSortField,
+        initialSortOrder,
+        initialIllnesses: fetchedIllnesses, 
+        error: error.message || 'Server error fetching assessments.' 
+      } 
+    };
+  }
 };
 
 export default DoctorDashboard; 

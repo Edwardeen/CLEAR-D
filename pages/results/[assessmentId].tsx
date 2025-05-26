@@ -9,7 +9,7 @@ import User from '../../models/User';
 import { ParsedUrlQuery } from 'querystring';
 import React, { useState, useEffect } from 'react';
 import mongoose from 'mongoose';
-import { getCancerScoreColor, getGlaucomaScoreColor } from '../../utils/scoreColors';
+import { getCancerScoreColor, getGlaucomaScoreColor, getDynamicCancerHexColor, getDynamicGlaucomaHexColor } from '../../utils/scoreColors';
 import { getRiskLevelName } from '../../utils/riskUtils'; // Added import
 
 // Icon placeholder (e.g., using a Unicode character or an SVG component later)
@@ -123,7 +123,11 @@ const ResultsPage: NextPage<ResultsPageProps> = ({ assessment: initialAssessment
   }
 
   const assessmentTypeDisplay = initialAssessment.type.charAt(0).toUpperCase() + initialAssessment.type.slice(1);
-  const themeColor = initialAssessment.type === 'glaucoma' ? '#10B981' : (initialAssessment.type === 'cancer' ? '#F43F5E' : '#8B5CF6');
+  const themeColor = initialAssessment
+    ? initialAssessment.type === 'glaucoma'
+      ? getDynamicGlaucomaHexColor(initialAssessment.totalScore)
+      : getDynamicCancerHexColor(initialAssessment.totalScore)
+    : '#8B5CF6'; // Default fallback color if type is unknown (should not happen)
   const scoreColorClass = initialAssessment 
     ? initialAssessment.type === 'glaucoma' 
       ? getGlaucomaScoreColor(initialAssessment.totalScore)
@@ -150,14 +154,72 @@ const ResultsPage: NextPage<ResultsPageProps> = ({ assessment: initialAssessment
         {/* Primary Info Block */}
         <section className="bg-white p-6 sm:p-8 rounded-xl shadow-xl border-t-4" style={{ borderColor: themeColor }}>
           <div className="text-center mb-6">
-            <p className="text-xl text-gray-600 mb-1">Your Total Score</p>
-            <h2 className="text-7xl font-bold" style={{ color: themeColor }}>
-              {initialAssessment.totalScore.toFixed(2)}
-              <span className="text-3xl text-gray-500">/10</span>
-            </h2>
+            <p className="text-3xl text-black mb-3 font-extrabold">Your CLEAR-D Score</p>
+            
+            <div className="flex flex-col items-center justify-center">
+              {/* Speedometer Score Meter */}
+              <div className="w-full md:w-auto flex flex-col items-center mb-3">
+                <svg width="200" height="120" viewBox="0 0 200 120" className="transform">
+                  {/* Background Arc */}
+                  <path 
+                    d="M 30 100 A 70 70 0 0 1 170 100"
+                    stroke="#e5e7eb" /* gray-200 */
+                    strokeWidth="16"
+                    fill="none"
+                    strokeLinecap="round"
+                  />
+                  
+                  {/* Value Arc - Filled part of the speedometer (score to 10) */}
+                  <path 
+                    d="M 30 100 A 70 70 0 0 1 170 100"
+                    stroke={themeColor}
+                    strokeWidth="16"
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeDasharray={`${(initialAssessment.totalScore / 10) * (Math.PI * 70)} ${(1 - initialAssessment.totalScore / 10) * (Math.PI * 70)}`}
+                    strokeDashoffset={0}
+                    style={{
+                      transition: 'stroke-dasharray 1s ease-out'
+                    }}
+                  />
+
+                  {/* Needle */}
+                  <line
+                    x1="100" 
+                    y1="100"
+                    x2="100" 
+                    y2="55"
+                    stroke={themeColor}
+                    strokeWidth="4"
+                    strokeLinecap="round"
+                    style={{
+                      transform: `rotate(${(initialAssessment.totalScore / 10) * 180 - 90}deg)`, 
+                      transformOrigin: '100px 100px',
+                      transition: 'transform 1s ease-out'
+                    }}
+                  />
+                  <circle cx="100" cy="100" r="6" fill={themeColor} />
+                  
+                  {/* Labels */}
+                  <text x="20" y="115" textAnchor="middle" fontSize="10" fill="#6b7280">0</text>
+                  <text x="100" y="18" textAnchor="middle" fontSize="10" fill="#6b7280">5</text>
+                  <text x="180" y="115" textAnchor="middle" fontSize="10" fill="#6b7280">10</text>
+                  
+                  {/* Numeric Risk Level Labels (approximate positions) */}
+                  <text x="45" y="68" textAnchor="middle" fontSize="9" fill="#4b5563">2.5</text>
+                  <text x="155" y="68" textAnchor="middle" fontSize="9" fill="#4b5563">7.5</text>
+                </svg>
+              </div>
+
+              {/* Score Text */}
+              <h2 className="text-7xl font-bold mt-1" style={{ color: themeColor }}>
+                {initialAssessment.totalScore.toFixed(2)}
+                <span className="text-3xl text-gray-500">/10</span>
+              </h2>
+            </div>
           </div>
           
-          <div className="text-center mb-6">
+          <div className="text-center mb-6 mt-6">
             <p className="text-xl text-gray-600 mb-2">This places you in the</p>
             <span className={`px-6 py-3 rounded-lg text-xl font-semibold shadow-lg ${scoreColorClass}`}>
               {riskLevelName}
@@ -267,30 +329,56 @@ const ResultsPage: NextPage<ResultsPageProps> = ({ assessment: initialAssessment
         {/* Actions Card */}
         <section className="bg-white p-6 sm:p-8 rounded-xl shadow-xl">
           <h2 className="text-3xl font-semibold text-gray-800 mb-6 text-center">Next Steps & Resources</h2>
-          <div className="mt-6 flex justify-center">
-            <Link href="/hospitals" legacyBehavior>
-              <a className="flex flex-col items-center justify-center px-10 py-4 text-lg font-medium text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 ease-in-out transform hover:-translate-y-1"
-                 style={{ backgroundColor: themeColor }}>
-                <span className="text-2xl mb-2">🏥</span> Find a Hospital/Specialist
-              </a>
-            </Link>
+          <div className="mt-6 flex flex-col items-center gap-4"> {/* Vertical flex for main button, then row for others */}
+            
+            {/* Dynamic Next Assessment Button - Prominent */}
+            {initialAssessment.type === 'glaucoma' && (
+              <Link href="/assessment/cancer" legacyBehavior>
+                <a className="w-full max-w-lg flex flex-col items-center justify-center px-8 py-4 text-lg font-semibold text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 ease-in-out transform hover:-translate-y-1 bg-pink-500 hover:bg-pink-600 text-center">
+                  <span className="text-2xl mb-2">🔬</span> Take Cancer Assessment
+                </a>
+              </Link>
+            )}
+            {initialAssessment.type === 'cancer' && (
+              <Link href="/assessment/glaucoma" legacyBehavior>
+                <a className="w-full max-w-lg flex flex-col items-center justify-center px-8 py-4 text-lg font-semibold text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 ease-in-out transform hover:-translate-y-1 bg-green-500 hover:bg-green-600 text-center">
+                  <span className="text-2xl mb-2">👁️</span> Take Glaucoma Assessment
+                </a>
+              </Link>
+            )}
+
+            {/* Wrapper for other two buttons to be side-by-side */}
+            <div className="flex flex-wrap justify-center items-center gap-4 mt-2 w-full">
+              <Link href="/hospitals" legacyBehavior>
+                <a className="flex flex-col items-center justify-center px-6 py-3 text-base font-medium text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 ease-in-out transform hover:-translate-y-1 min-w-[200px] text-center" 
+                   style={{ backgroundColor: themeColor }}>
+                  <span className="text-xl mb-1">🏥</span> Find a Hospital/Specialist
+                </a>
+              </Link>
+              <Link href="/stats" legacyBehavior>
+                <a className="flex flex-col items-center justify-center px-6 py-3 text-base font-medium text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 ease-in-out transform hover:-translate-y-1 bg-indigo-600 hover:bg-indigo-700 min-w-[200px] text-center">
+                  <span className="text-xl mb-1">📊</span> View Health Statistics
+                </a>
+              </Link>
+            </div>
           </div>
         </section>
 
-        {/* Glossary Card */}
-        <section className="bg-white p-6 sm:p-8 rounded-xl shadow-xl">
-          <h2 className="text-3xl font-semibold text-gray-800 mb-5 border-b-2 pb-3">Glossary</h2>
-          <dl className="space-y-4 text-gray-700">
-            <div>
-              <dt className="font-semibold text-lg">IOP (Intraocular Pressure):</dt>
-              <dd className="ml-1 text-base text-gray-600">The fluid pressure inside the eye. Elevated IOP is a key risk factor for glaucoma.</dd>
+        {/* Disclaimer Card - Moved to the end and text updated */}
+        <section className="bg-blue-50 p-6 rounded-xl shadow-lg border-l-4 border-blue-500 mt-12 mb-4">
+          <div className="flex items-center">
+            <div className="flex-shrink-0 mr-4">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
             </div>
             <div>
-              <dt className="font-semibold text-lg">Halos:</dt>
-              <dd className="ml-1 text-base text-gray-600">Seeing rainbow-like circles or rings around lights, which can be a symptom of certain eye conditions, including glaucoma.</dd>
+              <h3 className="text-xl font-semibold text-blue-700 mb-1">Access Your Results & Card Anytime!</h3>
+              <p className="text-gray-700">
+                This assessment result, along with an auto-generated CLEAR-D TEAL CARD, has been saved to your account. You can view them again anytime from your <Link href="/profile" legacyBehavior><a className="text-blue-600 hover:text-blue-800 underline font-medium">Profile Page</a></Link> under the "My Assessments" and "My Cards" sections respectively.
+              </p>
             </div>
-            {/* Add more terms as needed */}
-          </dl>
+          </div>
         </section>
 
       </div>

@@ -13,7 +13,7 @@ export interface IOperatingHours {
 
 export interface ICounselor extends Document {
   name: string;
-  type: "Kerajaan" | "Swasta" | "Individual" | "NGO" | "Other";
+  type: "Government" | "Private" | "Individual" | "NGO" | "Other";
   state: string;
   address: string;
   contact?: IContactInfo;
@@ -34,7 +34,7 @@ const CounselorSchema: Schema<ICounselor> = new Schema(
     },
     type: { 
       type: String, 
-      enum: ["Kerajaan", "Swasta", "Individual", "NGO", "Other"],
+      enum: ["Government", "Private", "Individual", "NGO", "Other"],
       required: [true, 'Type is required']
     },
     state: { 

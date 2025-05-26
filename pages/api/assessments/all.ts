@@ -87,6 +87,12 @@ export default async function handler(
         .limit(limit)
         .lean();
         
+      // LOGGING FOR DEBUGGING icPassportNo
+      if (assessments && assessments.length > 0 && assessments[0].userId) {
+        console.log('API /api/assessments/all.ts - First populated userId:', JSON.stringify(assessments[0].userId, null, 2));
+      }
+      // END LOGGING
+
       // Post-fetch sorting for special fields (ONLY userId.name and userId.email)
       if (sortField) {
         // Handle userId.name sorting

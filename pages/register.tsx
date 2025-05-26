@@ -114,9 +114,35 @@ const RegisterPage = () => {
   }, [imagePreview]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value, type } = e.target;
+    const { name, type } = e.target;
+    let { value } = e.target; // Make value mutable for preprocessing
+
+    if (name === 'icPassportNo') {
+      value = value.replace(/[^a-zA-Z0-9]/g, '');
+    } else if (name === 'phone') {
+      // Remove all non-numeric characters except a leading +
+      value = value.replace(/[^\d+]/g, '');
+      if (value.length > 1) { // Keep + if it's the only char for now
+          value = value.replace(/(?!^)[+]/g, ''); // Remove + if not at the beginning
+      }
+      // Ensure it starts with a + if it's not empty and not just a single +
+      if (value && value !== '+' && !value.startsWith('+')) {
+        value = '+' + value.replace(/[+]/g, ''); // Remove any other + then prepend
+      }
+    } else if (name === 'emergencyContact.phone') {
+       // Remove all non-numeric characters except a leading +
+      value = value.replace(/[^\d+]/g, '');
+      if (value.length > 1) { 
+          value = value.replace(/(?!^)[+]/g, ''); 
+      }
+      if (value && value !== '+' && !value.startsWith('+')) {
+        value = '+' + value.replace(/[+]/g, ''); 
+      }
+    }
+
     if (name.includes('.')) {
       const [parent, child] = name.split('.');
+      // For emergencyContact.phone, value is already processed
       setFormData(prev => ({
         ...prev,
         [parent]: { ...(prev[parent as keyof IUser] as object), [child]: value },
@@ -125,7 +151,8 @@ const RegisterPage = () => {
       const checked = (e.target as HTMLInputElement).checked;
       setFormData(prev => ({ ...prev, [name]: checked }));
     } else if (type === 'number') {
-      setFormData(prev => ({ ...prev, [name]: value ? parseFloat(value) : undefined }));
+      // For heightCm and weightKg, allow empty string to clear, otherwise parse
+      setFormData(prev => ({ ...prev, [name]: value ? parseFloat(value) : '' }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
@@ -336,8 +363,8 @@ const RegisterPage = () => {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
               <div className={fieldGroupClass}>
-                <label htmlFor="phone" className={labelClass}>Phone Number</label>
-                <input type="tel" name="phone" id="phone" value={formData.phone || ''} onChange={handleChange} className={inputBaseClass} />
+                <label htmlFor="phone" className={labelClass}>Phone Number (e.g., +60123456789)</label>
+                <input type="tel" name="phone" id="phone" value={formData.phone || ''} onChange={handleChange} className={inputBaseClass} placeholder="+CountryCodeNumber"/>
               </div>
               <div className={fieldGroupClass}>
                 <label htmlFor="maritalStatus" className={labelClass}>Marital Status</label>
@@ -373,8 +400,8 @@ const RegisterPage = () => {
                 <input type="text" name="emergencyContact.relationship" id="emergencyContact.relationship" value={getNestedValue('emergencyContact.relationship')} onChange={handleChange} className={inputBaseClass} />
               </div>
               <div className={fieldGroupClass}>
-                <label htmlFor="emergencyContact.phone" className={labelClass}>Phone</label>
-                <input type="tel" name="emergencyContact.phone" id="emergencyContact.phone" value={getNestedValue('emergencyContact.phone')} onChange={handleChange} className={inputBaseClass} />
+                <label htmlFor="emergencyContact.phone" className={labelClass}>Phone (e.g., +60123456789)</label>
+                <input type="tel" name="emergencyContact.phone" id="emergencyContact.phone" value={getNestedValue('emergencyContact.phone')} onChange={handleChange} className={inputBaseClass} placeholder="+CountryCodeNumber"/>
               </div>
             </div>
           </section>
