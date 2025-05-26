@@ -1,0 +1,453 @@
+import type { NextPage, GetServerSideProps, GetServerSidePropsContext, PreviewData } from 'next';
+import { useRouter } from 'next/router';
+import Link from 'next/link';
+import { getServerSession, User as NextAuthUser } from 'next-auth'; // Import User as NextAuthUser
+import { authOptions } from '../api/auth/[...nextauth]';
+import dbConnect from '../../lib/dbConnect';
+import Assessment, { IAssessment } from '../../models/Assessment';
+import User from '../../models/User';
+import { ParsedUrlQuery } from 'querystring';
+import React, { useState, useEffect } from 'react';
+import mongoose from 'mongoose';
+import { getCancerScoreColor, getGlaucomaScoreColor, getDynamicCancerHexColor, getDynamicGlaucomaHexColor } from '../../utils/scoreColors';
+import { getRiskLevelName } from '../../utils/riskUtils'; // Added import
+
+// Icon placeholder (e.g., using a Unicode character or an SVG component later)
+const GearIcon = () => <span className="text-3xl">⚙️</span>; // Simple example
+
+// Helper function to get background classes based on score and type with gradient backgrounds
+const getBackgroundClasses = (score: number, type: string): string => {
+  if (type === 'glaucoma') {
+    if (score >= 0 && score < 2.1) return 'bg-gradient-to-br from-green-200 to-green-300 bg-opacity-70'; // Low Risk
+    if (score >= 2.1 && score < 5) return 'bg-gradient-to-br from-yellow-200 to-yellow-300 bg-opacity-70'; // Moderate Risk
+    if (score >= 5 && score < 8) return 'bg-gradient-to-br from-orange-200 to-orange-300 bg-opacity-70'; // High Risk
+    if (score >= 8) return 'bg-gradient-to-br from-red-200 to-red-300 bg-opacity-70'; // Critical / Acute
+  } else if (type === 'cancer') {
+    if (score >= 0 && score < 3) return 'bg-gradient-to-br from-green-200 to-green-300 bg-opacity-70'; // Low Risk
+    if (score >= 3 && score < 5) return 'bg-gradient-to-br from-yellow-200 to-yellow-300 bg-opacity-70'; // Moderate Risk
+    if (score >= 5 && score < 7) return 'bg-gradient-to-br from-orange-200 to-orange-300 bg-opacity-70'; // High Risk
+    if (score >= 7) return 'bg-gradient-to-br from-red-200 to-red-300 bg-opacity-70'; // Very High Risk / Critical
+  }
+  return 'bg-gradient-to-br from-gray-200 to-gray-300 bg-opacity-60'; // Default background
+}
+
+// Get recommendation based on score and type
+const getRecommendationText = (score: number, type: string): string => {
+  const lowerType = type.toLowerCase();
+  if (lowerType === 'glaucoma') {
+    if (score >= 8) return 'Immediate intervention, laser or IOP-lowering meds';
+    if (score >= 5) return 'Surgery or combination treatments';
+    if (score >= 2.1) return 'Eye drops, laser therapy';
+    return 'Routine monitoring, lifestyle advice';
+  } else if (lowerType === 'cancer') {
+    if (score >= 9) return 'Surgery + Chemo/Radiation';
+    if (score >= 7) return 'Chemotherapy';
+    if (score >= 5) return 'Radiation Therapy';
+    if (score >= 3) return 'Immunotherapy';
+    return 'Targeted Therapy';
+  } else {
+    if (score >= 8) return 'Urgent medical consultation is advised.';
+    if (score >= 5) return 'Consult a specialist for further evaluation and management.';
+    if (score >= 2) return 'Monitor symptoms and consider a follow-up with a healthcare provider.';
+    return 'Maintain a healthy lifestyle and regular check-ups.';
+  }
+};
+
+interface ResultsPageProps {
+  assessment?: IAssessment | null;
+  userDiabetesStatus?: boolean | null;
+  error?: string;
+}
+
+// Helper to safely stringify and parse (to handle non-serializable types like ObjectId/Date)
+const safeJsonParse = (data: any): any => {
+  try {
+    return JSON.parse(JSON.stringify(data));
+  } catch (e) {
+    console.error("Failed to parse data:", e);
+    return null;
+  }
+};
+
+const ResultsPage: NextPage<ResultsPageProps> = ({ assessment: initialAssessment, userDiabetesStatus, error }) => {
+  const router = useRouter();
+  const [historicalAssessments, setHistoricalAssessments] = useState<IAssessment[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState<boolean>(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+
+  const pageBgClass = initialAssessment 
+    ? getBackgroundClasses(initialAssessment.totalScore, initialAssessment.type) 
+    : 'bg-gray-100';
+
+  useEffect(() => {
+    if (initialAssessment && initialAssessment._id) {
+      const fetchHistory = async () => {
+        setLoadingHistory(true);
+        try {
+          const response = await fetch(`/api/results/me/trends?type=${initialAssessment.type}&limit=20`);
+          if (!response.ok) throw new Error('Failed to fetch historical assessments for trend chart');
+          const data = await response.json();
+          setHistoricalAssessments(data.assessments || []);
+        } catch (err: any) {
+          setHistoryError(err.message);
+        } finally {
+          setLoadingHistory(false);
+        }
+      };
+      fetchHistory();
+    }
+  }, [initialAssessment]);
+
+  if (error) {
+    return (
+      <div className={`min-h-screen flex items-center justify-center p-4 ${pageBgClass}`}>
+        <div className="max-w-md w-full bg-white p-6 rounded-xl shadow-2xl text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Error Loading Results</h1>
+          <p className="text-gray-700 mb-6">{error}</p>
+          <Link href="/" legacyBehavior><a className="inline-block bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors shadow-md">Go back to Home</a></Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (!initialAssessment) {
+    return (
+      <div className={`min-h-screen flex items-center justify-center p-4 ${pageBgClass}`}>
+        <div className="max-w-md w-full bg-white p-6 rounded-xl shadow-2xl text-center">
+          <h1 className="text-2xl font-bold text-yellow-600 mb-4">Assessment Not Found</h1>
+          <p className="text-gray-700 mb-6">The requested assessment could not be found or you may not have permission to view it.</p>
+          <Link href="/" legacyBehavior><a className="inline-block bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors shadow-md">Go back to Home</a></Link>
+        </div>
+      </div>
+    );
+  }
+
+  const assessmentTypeDisplay = initialAssessment.type.charAt(0).toUpperCase() + initialAssessment.type.slice(1);
+  const themeColor = initialAssessment
+    ? initialAssessment.type === 'glaucoma'
+      ? getDynamicGlaucomaHexColor(initialAssessment.totalScore)
+      : getDynamicCancerHexColor(initialAssessment.totalScore)
+    : '#8B5CF6'; // Default fallback color if type is unknown (should not happen)
+  const scoreColorClass = initialAssessment 
+    ? initialAssessment.type === 'glaucoma' 
+      ? getGlaucomaScoreColor(initialAssessment.totalScore)
+      : getCancerScoreColor(initialAssessment.totalScore)
+    : '';
+  
+  const riskLevelName = getRiskLevelName(initialAssessment.totalScore, initialAssessment.type);
+  const recommendationText = getRecommendationText(initialAssessment.totalScore, initialAssessment.type);
+
+  return (
+    <div className={`min-h-screen antialiased text-gray-800 transition-colors duration-500 ${pageBgClass}`}>
+      <div className="container mx-auto max-w-4xl px-4 py-8 sm:py-12 space-y-12">
+
+        {/* Page Header */}
+        <header className="text-center space-y-3">
+          <div className="inline-block p-3 bg-white bg-opacity-70 rounded-full shadow-md">
+            <GearIcon />
+          </div>
+          <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 filter drop-shadow-sm">
+            {assessmentTypeDisplay} Assessment Results
+          </h1>
+        </header>
+
+        {/* Primary Info Block */}
+        <section className="bg-white p-6 sm:p-8 rounded-xl shadow-xl border-t-4" style={{ borderColor: themeColor }}>
+          <div className="text-center mb-6">
+            <p className="text-3xl text-black mb-3 font-extrabold">Your CLEAR-D Score</p>
+            
+            <div className="flex flex-col items-center justify-center">
+              {/* Speedometer Score Meter */}
+              <div className="w-full md:w-auto flex flex-col items-center mb-3">
+                <svg width="200" height="120" viewBox="0 0 200 120" className="transform">
+                  {/* Background Arc */}
+                  <path 
+                    d="M 30 100 A 70 70 0 0 1 170 100"
+                    stroke="#e5e7eb" /* gray-200 */
+                    strokeWidth="16"
+                    fill="none"
+                    strokeLinecap="round"
+                  />
+                  
+                  {/* Value Arc - Filled part of the speedometer (score to 10) */}
+                  <path 
+                    d="M 30 100 A 70 70 0 0 1 170 100"
+                    stroke={themeColor}
+                    strokeWidth="16"
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeDasharray={`${(initialAssessment.totalScore / 10) * (Math.PI * 70)} ${(1 - initialAssessment.totalScore / 10) * (Math.PI * 70)}`}
+                    strokeDashoffset={0}
+                    style={{
+                      transition: 'stroke-dasharray 1s ease-out'
+                    }}
+                  />
+
+                  {/* Needle */}
+                  <line
+                    x1="100" 
+                    y1="100"
+                    x2="100" 
+                    y2="55"
+                    stroke={themeColor}
+                    strokeWidth="4"
+                    strokeLinecap="round"
+                    style={{
+                      transform: `rotate(${(initialAssessment.totalScore / 10) * 180 - 90}deg)`, 
+                      transformOrigin: '100px 100px',
+                      transition: 'transform 1s ease-out'
+                    }}
+                  />
+                  <circle cx="100" cy="100" r="6" fill={themeColor} />
+                  
+                  {/* Labels */}
+                  <text x="20" y="115" textAnchor="middle" fontSize="10" fill="#6b7280">0</text>
+                  <text x="100" y="18" textAnchor="middle" fontSize="10" fill="#6b7280">5</text>
+                  <text x="180" y="115" textAnchor="middle" fontSize="10" fill="#6b7280">10</text>
+                  
+                  {/* Numeric Risk Level Labels (approximate positions) */}
+                  <text x="45" y="68" textAnchor="middle" fontSize="9" fill="#4b5563">2.5</text>
+                  <text x="155" y="68" textAnchor="middle" fontSize="9" fill="#4b5563">7.5</text>
+                </svg>
+              </div>
+
+              {/* Score Text */}
+              <h2 className="text-7xl font-bold mt-1" style={{ color: themeColor }}>
+                {initialAssessment.totalScore.toFixed(2)}
+                <span className="text-3xl text-gray-500">/10</span>
+              </h2>
+            </div>
+          </div>
+          
+          <div className="text-center mb-6 mt-6">
+            <p className="text-xl text-gray-600 mb-2">This places you in the</p>
+            <span className={`px-6 py-3 rounded-lg text-xl font-semibold shadow-lg ${scoreColorClass}`}>
+              {riskLevelName}
+            </span>
+            <p className="text-xl text-gray-600 mt-2">category.</p>
+          </div>
+
+          {userDiabetesStatus === true && (
+            <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg text-center">
+              <h3 className="text-xl font-semibold text-red-700 mb-1">Important: Diabetes Status</h3>
+              <p className="text-red-600">
+                Your record indicates you have diabetes. This can significantly increase risks for certain conditions. Please discuss these results with your doctor.
+              </p>
+            </div>
+          )}
+        </section>
+
+        {/* Recommendations Card - Redesigned to be more prominent */}
+        <section className="bg-white p-2 rounded-xl shadow-2xl border-t-4 transform transition-all duration-300 hover:scale-[1.01] my-10" style={{ borderColor: themeColor }}>
+          <div className="relative overflow-hidden p-8">
+            {/* Background accent elements */}
+            <div className="absolute top-0 right-0 w-64 h-64 -mt-20 -mr-20 rounded-full bg-gradient-to-b from-blue-50 to-transparent opacity-70"></div>
+            <div className="absolute bottom-0 left-0 w-40 h-40 -mb-10 -ml-10 rounded-full bg-gradient-to-t from-blue-50 to-transparent opacity-70"></div>
+            
+            {/* Content */}
+            <div className="relative z-10">
+              <div className="flex items-center mb-6">
+                <div className="flex-shrink-0 bg-gradient-to-r from-blue-500 to-indigo-600 p-3 rounded-lg shadow-md mr-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                  </svg>
+                </div>
+                <h2 className="text-3xl sm:text-4xl font-bold text-gray-800 tracking-tight">Recommendations</h2>
+              </div>
+              
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-100 shadow-inner mb-6">
+                <div className="flex flex-col md:flex-row md:items-center">
+                  <div className="flex-shrink-0 bg-white p-4 rounded-lg shadow-md mb-4 md:mb-0 md:mr-6">
+                    <p className="text-lg font-bold" style={{ color: themeColor }}>
+                      {riskLevelName}
+                    </p>
+                    <p className="text-sm text-gray-500">Risk Level</p>
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-xl font-bold mb-2 text-gray-800">Our Recommendation</h3>
+                    <p className="text-lg text-gray-700 leading-relaxed">
+                      {recommendationText}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                  <h4 className="font-semibold text-gray-800 mb-2">Next Steps</h4>
+                  <ul className="space-y-2 text-gray-600">
+                    <li className="flex items-start">
+                      <svg className="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                      </svg>
+                      <span>Consult with a healthcare professional</span>
+                    </li>
+                    <li className="flex items-start">
+                      <svg className="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                      </svg>
+                      <span>Share your assessment results</span>
+                    </li>
+                    <li className="flex items-start">
+                      <svg className="h-5 w-5 text-green-500 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                      </svg>
+                      <span>Schedule follow-up tests if needed</span>
+                    </li>
+                  </ul>
+                </div>
+                
+                <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                  <h4 className="font-semibold text-gray-800 mb-2">Preventive Measures</h4>
+                  <ul className="space-y-2 text-gray-600">
+                    <li className="flex items-start">
+                      <svg className="h-5 w-5 text-blue-500 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                      </svg>
+                      <span>Maintain a healthy diet and regular exercise</span>
+                    </li>
+                    <li className="flex items-start">
+                      <svg className="h-5 w-5 text-blue-500 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                      </svg>
+                      <span>Monitor blood sugar levels closely</span>
+                    </li>
+                    <li className="flex items-start">
+                      <svg className="h-5 w-5 text-blue-500 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                      </svg>
+                      <span>Attend regular health screenings</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Actions Card */}
+        <section className="bg-white p-6 sm:p-8 rounded-xl shadow-xl">
+          <h2 className="text-3xl font-semibold text-gray-800 mb-6 text-center">Next Steps & Resources</h2>
+          <div className="mt-6 flex flex-col items-center gap-4"> {/* Vertical flex for main button, then row for others */}
+            
+            {/* Dynamic Next Assessment Button - Prominent */}
+            {initialAssessment.type === 'glaucoma' && (
+              <Link href="/assessment/cancer" legacyBehavior>
+                <a className="w-full max-w-lg flex flex-col items-center justify-center px-8 py-4 text-lg font-semibold text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 ease-in-out transform hover:-translate-y-1 bg-pink-500 hover:bg-pink-600 text-center">
+                  <span className="text-2xl mb-2">🔬</span> Take Cancer Assessment
+                </a>
+              </Link>
+            )}
+            {initialAssessment.type === 'cancer' && (
+              <Link href="/assessment/glaucoma" legacyBehavior>
+                <a className="w-full max-w-lg flex flex-col items-center justify-center px-8 py-4 text-lg font-semibold text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 ease-in-out transform hover:-translate-y-1 bg-green-500 hover:bg-green-600 text-center">
+                  <span className="text-2xl mb-2">👁️</span> Take Glaucoma Assessment
+                </a>
+              </Link>
+            )}
+
+            {/* Wrapper for other two buttons to be side-by-side */}
+            <div className="flex flex-wrap justify-center items-center gap-4 mt-2 w-full">
+              <Link href="/hospitals" legacyBehavior>
+                <a className="flex flex-col items-center justify-center px-6 py-3 text-base font-medium text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 ease-in-out transform hover:-translate-y-1 min-w-[200px] text-center" 
+                   style={{ backgroundColor: themeColor }}>
+                  <span className="text-xl mb-1">🏥</span> Find a Hospital/Specialist
+                </a>
+              </Link>
+              <Link href="/stats" legacyBehavior>
+                <a className="flex flex-col items-center justify-center px-6 py-3 text-base font-medium text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 ease-in-out transform hover:-translate-y-1 bg-indigo-600 hover:bg-indigo-700 min-w-[200px] text-center">
+                  <span className="text-xl mb-1">📊</span> View Health Statistics
+                </a>
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* Disclaimer Card - Moved to the end and text updated */}
+        <section className="bg-blue-50 p-6 rounded-xl shadow-lg border-l-4 border-blue-500 mt-12 mb-4">
+          <div className="flex items-center">
+            <div className="flex-shrink-0 mr-4">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-xl font-semibold text-blue-700 mb-1">Access Your Results & Card Anytime!</h3>
+              <p className="text-gray-700">
+                This assessment result, along with an auto-generated CLEAR-D TEAL CARD, has been saved to your account. You can view them again anytime from your <Link href="/profile" legacyBehavior><a className="text-blue-600 hover:text-blue-800 underline font-medium">Profile Page</a></Link> under the &quot;My Assessments&quot; and &quot;My Cards&quot; sections respectively.
+              </p>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  );
+};
+
+interface Params extends ParsedUrlQuery {
+  assessmentId: string;
+}
+
+// We won't use CustomNextAuthUser for now to avoid conflict with base NextAuthUser type.
+// The role check will be done by directly comparing string values.
+
+export const getServerSideProps: GetServerSideProps<ResultsPageProps, Params> = async (context: GetServerSidePropsContext<Params, PreviewData>) => {
+  const session = await getServerSession(context.req, context.res, authOptions);
+
+  if (!session || !session.user?.id) {
+    return { redirect: { destination: `/login?callbackUrl=${encodeURIComponent(context.resolvedUrl)}`, permanent: false } };
+  }
+  
+  // Access role directly, assuming it might include 'admin' as a string
+  const userRole = session.user.role as string; // Cast to string for comparison
+
+  const { assessmentId } = context.params!;
+  let assessment: IAssessment | null = null;
+  let userDiabetesStatus: boolean | null = null;
+  let error: string | undefined;
+
+  if (!assessmentId || !mongoose.Types.ObjectId.isValid(assessmentId)) {
+    return { props: { error: 'Invalid or missing Assessment ID.' } };
+  }
+
+  try {
+    await dbConnect();
+    assessment = await Assessment.findById(assessmentId).populate(
+        { path: 'userId', model: User, select: 'name email hasDiabetes photoUrl _id' }
+    ).lean();
+
+    if (!assessment) {
+      return { props: { error: 'Assessment not found.' } };
+    }
+
+    const assessmentUserIdString = (assessment.userId as any)?._id?.toString();
+
+    const isAdmin = typeof userRole === 'string' && userRole.toLowerCase() === 'admin';
+    const isDoctor = typeof userRole === 'string' && userRole.toLowerCase() === 'doctor';
+
+    // Allow viewing if user is admin, doctor, or the assessment owner
+    if (assessmentUserIdString !== session.user.id && !isAdmin && !isDoctor) {
+      return { props: { error: 'You are not authorized to view this assessment.' } };
+    }
+
+    if (typeof (assessment.userId as any)?.hasDiabetes === 'boolean') {
+      userDiabetesStatus = (assessment.userId as any).hasDiabetes;
+    }
+    
+    const safeAssessment = safeJsonParse(assessment);
+
+    return {
+      props: { 
+        assessment: safeAssessment,
+        userDiabetesStatus
+      },
+    };
+  } catch (e: any) {
+    console.error('[ResultPage getServerSideProps] Error:', e);
+    return { props: { error: e.message || 'Server error fetching assessment details.' } };
+  }
+};
+
+export default ResultsPage; 

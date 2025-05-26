@@ -22,63 +22,70 @@ export interface IFormData {
 }
 
 export interface IAssessment extends Document {
-  userId: Types.ObjectId; // Reference to User model
-  formData: IFormData;
-  glaucomaScore: number;
-  cancerScore: number;
-  higherRiskDisease: 'glaucoma' | 'cancer' | 'both' | 'none'; // Added 'none'
-  recommendations: string;
-  glaucomaRecommendations: string;
-  cancerRecommendations: string;
-  timestamp: Date;
+  userId: mongoose.Schema.Types.ObjectId; // ref -> users._id
+  type: string; // Changed from "glaucoma" | "cancer"
+  responses: {
+    questionId: string; // e.g. "G1", "C6"
+    answer: string; // e.g. "Yes" | "No" | rating
+    score: number; // computed per reference doc
+    autoPopulated?: boolean; // Flag to indicate if this response was auto-populated
+  }[];
+  totalScore: number;
+  riskLevel: string; // computed category
+  recommendations: string[];
+  createdAt: Date;
+  // added from existing file
+  doctor?: mongoose.Schema.Types.ObjectId; 
+  patientName?: string;
+  patientId?: string;
+  date?: Date;
+  glaucomaAssessment?: any; 
+  cancerAssessment?: any; 
+  notes?: string;
+  version?: number;
+  updatedAt?: Date;
 }
 
-const AssessmentSchema: Schema<IAssessment> = new Schema({
-  userId: {
-    type: Schema.Types.ObjectId,
-    ref: 'User', // Reference to the User model
-    required: true,
+const assessmentSchema = new Schema<IAssessment>(
+  {
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    type: { type: String, required: true },
+    responses: [
+      {
+        questionId: { type: String, required: true },
+        answer: { type: String, required: true },
+        score: { type: Number, required: true },
+        autoPopulated: { type: Boolean },
+      },
+    ],
+    totalScore: { type: Number, required: true },
+    riskLevel: { type: String, required: true },
+    recommendations: [{ type: String }],
+    createdAt: { type: Date, default: Date.now },
+    // added from existing file, marked as optional or removed if not in new spec
+    doctor: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, 
+    patientName: { type: String },
+    patientId: { type: String },
+    date: { type: Date }, // createdAt is likely the replacement
+    glaucomaAssessment: { type: Schema.Types.Mixed },
+    cancerAssessment: { type: Schema.Types.Mixed },
+    notes: { type: String },
+    version: { type: Number, default: 1 }
   },
-  formData: {
-    type: Object,
-    required: true,
-  },
-  glaucomaScore: {
-    type: Number,
-    required: true,
-    min: 0,
-    max: 10,
-  },
-  cancerScore: {
-    type: Number,
-    required: true,
-    min: 0,
-    max: 10,
-  },
-  higherRiskDisease: {
-    type: String,
-    enum: ['glaucoma', 'cancer', 'both', 'none'],
-    required: true,
-  },
-  recommendations: {
-    type: String,
-    required: true,
-  },
-    glaucomaRecommendations: {
-    type: String,
-    required: true,
-  },
-    cancerRecommendations: {
-    type: String,
-    required: true,
-  },
-  timestamp: {
-    type: Date,
-    default: Date.now,
-  },
+  { timestamps: true } // This will add createdAt and updatedAt
+);
+
+// Replace original createdAt with the one from timestamps: true for consistency
+assessmentSchema.pre<IAssessment>("save", function (next) {
+  if (!this.createdAt) {
+    this.createdAt = new Date();
+  }
+  next();
 });
 
 // Ensure the model is not redefined if it already exists
-const Assessment: Model<IAssessment> = models.Assessment || mongoose.model<IAssessment>('Assessment', AssessmentSchema);
+const Assessment: Model<IAssessment> =
+  mongoose.models.Assessment ||
+  mongoose.model<IAssessment>("Assessment", assessmentSchema);
 
 export default Assessment; 
